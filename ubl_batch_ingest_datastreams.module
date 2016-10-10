@@ -1,0 +1,45 @@
+<?php
+
+/**
+ * @file
+ * Ingest datastreams to existing items in batch
+ */
+
+// Permissions.
+define('UBL_BATCH_INGEST_DATASTREAMS_FROM_ZIP', 'Ingest datastreams to existing items in batch from zip file');
+
+/**
+ * Implements hook_menu().
+ */
+function ubl_batch_ingest_datastreams_menu() {
+  return array(
+    'ubl_batch_ingest_datastreams' => array(
+      'title' => 'Ingest datastreams from a zip file',
+      'type' => MENU_NORMAL_ITEM,
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('ubl_batch_ingest_datastreams_import_form'),
+      'file' => 'includes/ubl_batch_ingest_datastreams_zip_import.form.inc',
+      'access arguments' => array(UBL_BATCH_INGEST_DATASTREAMS_FROM_ZIP),
+    ),
+    'ubl_batch_ingest_datastreams/confirm' => array(
+      'title' => 'Confirm ingest of datastreams',
+      'type' => MENU_LOCAL_TASK,
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('ubl_batch_ingest_datastreams_confirm_form'),
+      'file' => 'includes/ubl_batch_ingest_datastreams_zip_import.form.inc',
+      'access arguments' => array(UBL_BATCH_INGEST_DATASTREAMS_FROM_ZIP),
+    ),
+  );
+}
+
+/**
+ * Implements hook_permission().
+ */
+function ubl_batch_ingest_datastreams_permission() {
+  return array(
+    UBL_BATCH_INGEST_DATASTREAMS_FROM_ZIP => array(
+      'title' => t('Ingest datastreams from zip file'),
+      'description' => t('Ingest datastreams to existing items in batch from zip file'),
+    ),
+  );
+}
