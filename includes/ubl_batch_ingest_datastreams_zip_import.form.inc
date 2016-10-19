@@ -54,7 +54,7 @@ function ubl_batch_ingest_datastreams_import_form_submit(array $form, array &$fo
     return;
   }
 
-  $zipdirectory = preg_replace("/\.[a-z]{3}$/i", '_' . $zipfile->timestamp . '/', $zipfile->uri);
+  $zipdirectory = preg_replace("/\.[a-z0-9]{3}$/i", '_' . $zipfile->timestamp . '/', $zipfile->uri);
   if ($zip->extractTo($zipdirectory) !== TRUE) {
     drupal_set_message(t('Error unzipping the provided Zip file.'));
     return;
@@ -70,7 +70,8 @@ function ubl_batch_ingest_datastreams_import_form_submit(array $form, array &$fo
       && isset($path_info['extension'])
       && $path_info['extension'] != 'DS_Store') {
       $filename = $path_info['basename'];
-      $realpath = $zipdirectory . $filename;
+      $dirname = $path_info['dirname'];
+      $realpath = $zipdirectory . $dirname . '/' . $filename;
       $files[$filename] = $realpath;
 
       if (isset($path_info["extension"]) && $path_info["extension"] === 'csv') {
@@ -80,7 +81,7 @@ function ubl_batch_ingest_datastreams_import_form_submit(array $form, array &$fo
         else {
           // Multiple CSV files found in zip file.
           // Get the one with the same name as the zip file.
-          $newcsvpath = $zipdirectory . preg_replace("/\.[a-z]{3}$/i", '.csv', $zipfile->filename);
+          $newcsvpath = $zipdirectory . preg_replace("/\.[a-z0-9]{3}$/i", '.csv', $zipfile->filename);
           if (file_exists($newcsvpath)) {
             $csvpath = $newcsvpath;
           }
@@ -110,6 +111,9 @@ function ubl_batch_ingest_datastreams_import_form_submit(array $form, array &$fo
     $generatable_dsids[] = 'OCR';
     $generatable_dsids[] = 'HOCR';
   }
+  if (module_exists('islandora_handle')) {
+    $generatable_dsids[] = 'HDL';
+  }
 
   ini_set("auto_detect_line_endings", "1");
   $delimit = "\t";
@@ -138,13 +142,17 @@ function ubl_batch_ingest_datastreams_import_form_submit(array $form, array &$fo
         }
       }
 
-      if (count($data) != 3) {
+      if (count($data) == 1 && trim($data[0]) === "") {
+        continue;
+      }
+      if (count($data) != 3 && count($data) != 2) {
         drupal_set_message(t("Line @linenr has @countcolumn columns, but should be 3",
           array(
             "@linenr" => $linenr,
             "@countcolumn" => count($data),
           )), "error");
         if (count($data) < 2) {
+          // Just skip an empty line.
           continue;
         }
       }
@@ -264,6 +272,9 @@ function ubl_batch_ingest_datastreams_confirm_form(array $form, array &$form_sta
         }
         if (!isset($object)) {
           $options[$key]['action'] = t('No action');
+        }
+        elseif (array_key_exists('disallow',$values) && $values['disallow']) {
+          $options[$key]['action'] = t('Action not allowed');
         }
         elseif (!$is_collection && isset($object[$dsid])) {
           if (array_key_exists("filename", $values)) {
@@ -417,6 +428,13 @@ function ubl_batch_ingest_datastreams_operation($params, &$context) {
       elseif ($dsid === 'HOCR') {
         module_load_include('inc', 'islandora_ocr', 'includes/derivatives');
         islandora_ocr_derive_hocr($object, FALSE);
+      }
+      elseif ($dsid === 'HDL') {
+        module_load_include('inc', 'islandora_handle', 'includes/derivatives');
+        $result = islandora_handle_append_handles_from_configuration($object);
+        if (isset($result) && $result['success'] === TRUE) {
+          islandora_handle_add_to_dc_datastream($object);
+        }
       }
     }
   }

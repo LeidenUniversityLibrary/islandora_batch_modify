@@ -1,5 +1,5 @@
 name = Batch Ingest Datastreams
-description = Adds functionality to add, replace or generate datastreams for existing objects in batch
+description = Adds functionality to add or replace datastreams for existing objects in batch
 package = UBL
 dependencies[] = islandora
 dependencies[] = islandora_solr
