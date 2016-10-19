@@ -43,3 +43,18 @@ function ubl_batch_ingest_datastreams_permission() {
     ),
   );
 }
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function ubl_batch_ingest_datastreams_form_system_modules_alter(&$form, &$form_state, $form_id) {
+  $form['modules']['UBL']['ubl_batch_ingest_datastreams']['links']['configure'] = array(
+    '#type' => 'link',
+    '#title' => t('Configure'),
+    '#href' => 'ubl_batch_ingest_datastreams',
+    '#options' => array('attributes' => array(
+      'class' => array('module-link','module-link-configure'),
+      'title' => t('Setup a batch ingest of datastreams'),
+    )),
+  );
+}
