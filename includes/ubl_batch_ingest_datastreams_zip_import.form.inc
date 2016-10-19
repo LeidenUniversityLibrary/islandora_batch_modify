@@ -114,6 +114,9 @@ function ubl_batch_ingest_datastreams_import_form_submit(array $form, array &$fo
   if (module_exists('islandora_handle')) {
     $generatable_dsids[] = 'HDL';
   }
+  if (module_exists('islandora_paged_content')) {
+    $generatable_dsids[] = 'DIMENSIONS';
+  }
 
   ini_set("auto_detect_line_endings", "1");
   $delimit = "\t";
@@ -434,6 +437,12 @@ function ubl_batch_ingest_datastreams_operation($params, &$context) {
         $result = islandora_handle_append_handles_from_configuration($object);
         if (isset($result) && $result['success'] === TRUE) {
           islandora_handle_add_to_dc_datastream($object);
+        }
+      }
+      elseif ($dsid === 'DIMENSIONS') {
+        if ($object['JP2']) {
+          module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
+          islandora_paged_content_add_dimensions_relationships($object);
         }
       }
     }
