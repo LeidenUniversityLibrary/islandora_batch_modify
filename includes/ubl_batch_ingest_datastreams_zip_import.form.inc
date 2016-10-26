@@ -6,7 +6,7 @@
  */
 
 /**
- * The form for uploading zip.
+ * The form for handling the ingest of datastreams.
  *
  * @param array $form
  *   The Drupal form definition.
@@ -14,10 +14,37 @@
  *   The Drupal form state.
  */
 function ubl_batch_ingest_datastreams_import_form(array $form, array &$form_state) {
-  $extensions = array('zip');
+  if (isset($_SESSION['ubl_batch_ingest_datastreams_ingest_objects'])) {
+    return ubl_batch_ingest_datastreams_confirm_form($form, $form_state);
+  }
+  else {
+    return ubl_batch_ingest_datastreams_import_zip_or_csv_form($form, $form_state);
+  }
+}
+
+function ubl_batch_ingest_datastreams_import_form_submit(array $form, array &$form_state) {
+  $form_state['rebuild'] = TRUE;
+  if (isset($_SESSION['ubl_batch_ingest_datastreams_ingest_objects'])) {
+    return ubl_batch_ingest_datastreams_confirm_form_submit($form, $form_state);
+  }
+  else {
+    return ubl_batch_ingest_datastreams_import_zip_or_csv_form_submit($form, $form_state);
+  }
+}
+
+/**
+ * The form for uploading zip or csv.
+ *
+ * @param array $form
+ *   The Drupal form definition.
+ * @param array $form_state
+ *   The Drupal form state.
+ */
+function ubl_batch_ingest_datastreams_import_zip_or_csv_form(array $form, array &$form_state) {
+  $extensions = array('zip csv');
   $upload_size = min((int) ini_get('post_max_size'), (int) ini_get('upload_max_filesize'));
   $form['file'] = array(
-    '#title' => t('Upload zip'),
+    '#title' => t('Upload zip or csv'),
     '#type' => 'managed_file',
     '#description' => t('Select a file to upload.<br/>Files must be less than <b>@size MB.</b><br/>Allowed file types: <b>@ext.</b>', array('@size' => $upload_size, '@ext' => $extensions[0])),
     '#upload_location' => 'temporary://',
@@ -29,7 +56,7 @@ function ubl_batch_ingest_datastreams_import_form(array $form, array &$form_stat
   );
   $form['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Upload ZIP'),
+    '#value' => t('Upload'),
   );
   return $form;
 }
@@ -42,60 +69,67 @@ function ubl_batch_ingest_datastreams_import_form(array $form, array &$form_stat
  * @param array $form_state
  *   The Drupal form state.
  */
-function ubl_batch_ingest_datastreams_import_form_submit(array $form, array &$form_state) {
-  $zipfile = file_load($form_state['values']['file']);
-  $zippath = drupal_realpath($zipfile->uri);
+function ubl_batch_ingest_datastreams_import_zip_or_csv_form_submit(array $form, array &$form_state) {
+  $uploadedfile = file_load($form_state['values']['file']);
 
-  $zip = new ZipArchive();
-  if (($error = $zip->open($zippath)) !== TRUE) {
-    drupal_set_message(t('Error opening the provided Zip file.  Code: %code', array(
-          '%code' => $error,
-        )));
-    return;
-  }
-
-  $zipdirectory = preg_replace("/\.[a-z0-9]{3}$/i", '_' . $zipfile->timestamp . '/', $zipfile->uri);
-  if ($zip->extractTo($zipdirectory) !== TRUE) {
-    drupal_set_message(t('Error unzipping the provided Zip file.'));
-    return;
-  }
   $csvpath = FALSE;
-  $count = $zip->numFiles;
-  $files = array();
-  for ($i = 0; $i < $count; $i++) {
-    $name = $zip->getNameIndex($i);
-    $path_info = pathinfo($name);
+  if ($uploadedfile->filemime === 'application/zip') {
+    $zipfile = $uploadedfile;
+    $zippath = drupal_realpath($zipfile->uri);
 
-    if (strpos($path_info['dirname'], '__MACOSX') === FALSE
-      && isset($path_info['extension'])
-      && $path_info['extension'] != 'DS_Store') {
-      $filename = $path_info['basename'];
-      $dirname = $path_info['dirname'];
-      $realpath = $zipdirectory . $dirname . '/' . $filename;
-      $files[$filename] = $realpath;
+    $zip = new ZipArchive();
+    if (($error = $zip->open($zippath)) !== TRUE) {
+      drupal_set_message(t('Error opening the provided Zip file.  Code: %code', array(
+            '%code' => $error,
+          )));
+      return;
+    }
 
-      if (isset($path_info["extension"]) && $path_info["extension"] === 'csv') {
-        if ($csvpath === FALSE) {
-          $csvpath = $realpath;
-        }
-        else {
-          // Multiple CSV files found in zip file.
-          // Get the one with the same name as the zip file.
-          $newcsvpath = $zipdirectory . preg_replace("/\.[a-z0-9]{3}$/i", '.csv', $zipfile->filename);
-          if (file_exists($newcsvpath)) {
-            $csvpath = $newcsvpath;
+    $zipdirectory = preg_replace("/\.[a-z0-9]{3}$/i", '_' . $zipfile->timestamp . '/', $zipfile->uri);
+    if ($zip->extractTo($zipdirectory) !== TRUE) {
+      drupal_set_message(t('Error unzipping the provided Zip file.'));
+      return;
+    }
+    $count = $zip->numFiles;
+    $files = array();
+    for ($i = 0; $i < $count; $i++) {
+      $name = $zip->getNameIndex($i);
+      $path_info = pathinfo($name);
+
+      if (strpos($path_info['dirname'], '__MACOSX') === FALSE
+        && isset($path_info['extension'])
+        && $path_info['extension'] != 'DS_Store') {
+        $filename = $path_info['basename'];
+        $dirname = $path_info['dirname'];
+        $realpath = $zipdirectory . $dirname . '/' . $filename;
+        $files[$filename] = $realpath;
+
+        if (isset($path_info["extension"]) && $path_info["extension"] === 'csv') {
+          if ($csvpath === FALSE) {
+            $csvpath = $realpath;
           }
           else {
-            $csvpath = NULL;
+            // Multiple CSV files found in zip file.
+            // Get the one with the same name as the zip file.
+            $newcsvpath = $zipdirectory . preg_replace("/\.[a-z0-9]{3}$/i", '.csv', $zipfile->filename);
+            if (file_exists($newcsvpath)) {
+              $csvpath = $newcsvpath;
+            }
+            else {
+              $csvpath = NULL;
+            }
           }
         }
       }
     }
+    $zip->close();
+    if (!(isset($csvpath) && file_exists($csvpath))) {
+      drupal_set_message(t('Provided Zip file does not contain a valid CSV file.'), 'error');
+      return;
+    }
   }
-  $zip->close();
-  if (!(isset($csvpath) && file_exists($csvpath))) {
-    drupal_set_message(t('Provided Zip file does not contain a valid CSV file.'), 'error');
-    return;
+  else {
+    $csvpath = drupal_realpath($uploadedfile->uri);
   }
 
   $generatable_dsids = array();
@@ -224,8 +258,6 @@ function ubl_batch_ingest_datastreams_import_form_submit(array $form, array &$fo
 
   $_SESSION['ubl_batch_ingest_datastreams_ingest_objects'] = $ingest_objects;
   $_SESSION['ubl_batch_ingest_datastreams_finished'] = FALSE;
-
-  $form_state['redirect'] = 'ubl_batch_ingest_datastreams/confirm';
 }
 
 /**
@@ -276,7 +308,7 @@ function ubl_batch_ingest_datastreams_confirm_form(array $form, array &$form_sta
         if (!isset($object)) {
           $options[$key]['action'] = t('No action');
         }
-        elseif (array_key_exists('disallow',$values) && $values['disallow']) {
+        elseif (array_key_exists('disallow', $values) && $values['disallow']) {
           $options[$key]['action'] = t('Action not allowed');
         }
         elseif (!$is_collection && isset($object[$dsid])) {
@@ -317,12 +349,20 @@ function ubl_batch_ingest_datastreams_confirm_form(array $form, array &$form_sta
     );
     $form['table'] = $table;
 
+    $form['cancel'] = array(
+      '#type' => 'submit',
+      '#value' => t('Cancel'),
+    );
     if (!$_SESSION['ubl_batch_ingest_datastreams_finished']) {
       $form['submit'] = array(
         '#type' => 'submit',
         '#value' => t('Ingest datastreams'),
       );
     }
+  }
+  if ($_SESSION['ubl_batch_ingest_datastreams_finished']) {
+    unset($_SESSION['ubl_batch_ingest_datastreams_ingest_objects']);
+    unset($_SESSION['ubl_batch_ingest_datastreams_finished']);
   }
 
   return $form;
@@ -332,6 +372,12 @@ function ubl_batch_ingest_datastreams_confirm_form(array $form, array &$form_sta
  * Submitting the form for confirming the ingest of datastreams.
  */
 function ubl_batch_ingest_datastreams_confirm_form_submit(array $form, array &$form_state) {
+  if ($form_state['clicked_button']['#id'] === 'edit-cancel') {
+    unset($_SESSION['ubl_batch_ingest_datastreams_ingest_objects']);
+    unset($_SESSION['ubl_batch_ingest_datastreams_finished']);
+
+    return;
+  }
   if ($_SESSION['ubl_batch_ingest_datastreams_finished']) {
     // Do not change anything if already finished.
     return;

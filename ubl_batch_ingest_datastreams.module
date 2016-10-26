@@ -21,14 +21,6 @@ function ubl_batch_ingest_datastreams_menu() {
       'file' => 'includes/ubl_batch_ingest_datastreams_zip_import.form.inc',
       'access arguments' => array(UBL_BATCH_INGEST_DATASTREAMS_FROM_ZIP),
     ),
-    'ubl_batch_ingest_datastreams/confirm' => array(
-      'title' => 'Confirm ingest of datastreams',
-      'type' => MENU_LOCAL_TASK,
-      'page callback' => 'drupal_get_form',
-      'page arguments' => array('ubl_batch_ingest_datastreams_confirm_form'),
-      'file' => 'includes/ubl_batch_ingest_datastreams_zip_import.form.inc',
-      'access arguments' => array(UBL_BATCH_INGEST_DATASTREAMS_FROM_ZIP),
-    ),
   );
 }
 
@@ -52,9 +44,11 @@ function ubl_batch_ingest_datastreams_form_system_modules_alter(&$form, &$form_s
     '#type' => 'link',
     '#title' => t('Configure'),
     '#href' => 'ubl_batch_ingest_datastreams',
-    '#options' => array('attributes' => array(
-      'class' => array('module-link','module-link-configure'),
-      'title' => t('Setup a batch ingest of datastreams'),
-    )),
+    '#options' => array(
+      'attributes' => array(
+        'class' => array('module-link', 'module-link-configure'),
+        'title' => t('Setup a batch ingest of datastreams'),
+      ),
+    ),
   );
 }
