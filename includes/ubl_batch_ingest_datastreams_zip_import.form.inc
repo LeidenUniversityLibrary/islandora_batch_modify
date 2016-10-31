@@ -23,7 +23,6 @@ function ubl_batch_ingest_datastreams_import_form(array $form, array &$form_stat
 }
 
 function ubl_batch_ingest_datastreams_import_form_submit(array $form, array &$form_state) {
-  $form_state['rebuild'] = TRUE;
   if (isset($_SESSION['ubl_batch_ingest_datastreams_ingest_objects'])) {
     return ubl_batch_ingest_datastreams_confirm_form_submit($form, $form_state);
   }
@@ -56,7 +55,7 @@ function ubl_batch_ingest_datastreams_import_zip_or_csv_form(array $form, array 
   );
   $form['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Upload'),
+    '#value' => t('Ingest datastreams'),
   );
   return $form;
 }
@@ -279,7 +278,7 @@ function ubl_batch_ingest_datastreams_confirm_form(array $form, array &$form_sta
         $is_collection = FALSE;
         $options[$key]['objectid'] = check_plain($objectid);
         if (array_key_exists('object', $values)) {
-          $object = $values["object"];
+          $object = $values['object'];
           $is_collection = in_array('islandora:collectionCModel', $object->models);
           $options[$key]['object'] = array(
             'data' => array(
@@ -351,7 +350,7 @@ function ubl_batch_ingest_datastreams_confirm_form(array $form, array &$form_sta
 
     $form['cancel'] = array(
       '#type' => 'submit',
-      '#value' => t('Cancel'),
+      '#value' => t('Back to upload'),
     );
     if (!$_SESSION['ubl_batch_ingest_datastreams_finished']) {
       $form['submit'] = array(
@@ -359,10 +358,6 @@ function ubl_batch_ingest_datastreams_confirm_form(array $form, array &$form_sta
         '#value' => t('Ingest datastreams'),
       );
     }
-  }
-  if ($_SESSION['ubl_batch_ingest_datastreams_finished']) {
-    unset($_SESSION['ubl_batch_ingest_datastreams_ingest_objects']);
-    unset($_SESSION['ubl_batch_ingest_datastreams_finished']);
   }
 
   return $form;
@@ -555,6 +550,10 @@ function find_fedora_object_ids($identifier, $query_field = "catch_all_fields_mt
 
     if ($objid) {
       $objectids[] = $objid;
+      if (count($objectids) > 1) {
+        // Limit the number of object ids found to 2, because it is not useful to find more.
+        break;
+      }
     }
   }
 
