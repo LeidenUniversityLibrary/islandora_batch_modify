@@ -4,8 +4,6 @@
  * Functions for batch ingesting datastreams via drush.
  */
 
-//module_load_include('inc', 'ubl_check_datastreams', 'includes/ubl_check_datastreams.children');
-
 /**
  * Implements hook_drush_command().
  */
@@ -31,13 +29,13 @@ function drush_ubl_batch_ingest_datastreams_batch_ingest_datastreams_validate() 
   $csvfile = drush_get_option('csvfile');
 
   if (substr($csvfile, 0, 1) !== DIRECTORY_SEPARATOR) {
-    return drush_set_error("csvfile should be an absolute path to an existing CSV file, but is not absolute."); 
+    return drush_set_error("csvfile should be an absolute path to an existing CSV file, but is not absolute.");
   }
   if (!is_file($csvfile)) {
-    return drush_set_error("csvfile should be an absolute path to an existing CSV file, but does not exist."); 
+    return drush_set_error("csvfile should be an absolute path to an existing CSV file, but does not exist.");
   }
 
-  return TRUE; 
+  return TRUE;
 }
 
 /**
@@ -77,7 +75,8 @@ function drush_ubl_batch_ingest_datastreams_batch_ingest_datastreams() {
       }
 
       if (count($data) == 1 && trim($data[0]) === "") {
-        continue; // Just skip an empty
+        // Just skip an empty.
+        continue;
       }
       if (count($data) != 3 && count($data) != 2) {
         drush_log(t("Line @linenr has @countcolumn columns, but should be 3",
@@ -135,77 +134,78 @@ function drush_ubl_batch_ingest_datastreams_batch_ingest_datastreams() {
     }
 
     if (!$haserror) {
-      // TODO: looks alot like ubl_batch_ingest_datastreams_confirm_form_submit. Maybe put this in one function
+      // TODO: looks alot like ubl_batch_ingest_datastreams_confirm_form_submit.
+      // Maybe put this in one function.
       foreach ($ingest_objects as $objectid => $dsids) {
         foreach ($dsids as $dsid => $info) {
           $object = $info['object'];
           if (isset($info['filepath']) && $info['filepath'] !== NULL && strlen($info['filepath']) > 0) {
             drush_log(t('Ingesting datastream @ds into object @objectid', array('@ds' => $dsid, '@objectid' => $objectid)), 'notice');
-	    $filepath = $info['filepath'];
-	    $ingest = !isset($object[$dsid]);
-	    if ($ingest) {
-	      $mimetype = file_get_mimetype($filepath);
-	      $ds = $object->constructDatastream($dsid, 'M');
-	      $ds->label = basename($filepath);
-	      $ds->mimeType = $mimetype;
-	    }
-	    else {
-	      $ds = $object[$dsid];
-	    }
-	    $ds->setContentFromFile($filepath);
-	    if ($ingest) {
-	      $object->ingestDatastream($ds);
-	    }
-	  }
-	  else {
-	    // Generate a new datastream.
+            $filepath = $info['filepath'];
+            $ingest = !isset($object[$dsid]);
+            if ($ingest) {
+              $mimetype = file_get_mimetype($filepath);
+              $ds = $object->constructDatastream($dsid, 'M');
+              $ds->label = basename($filepath);
+              $ds->mimeType = $mimetype;
+            }
+            else {
+              $ds = $object[$dsid];
+            }
+            $ds->setContentFromFile($filepath);
+            if ($ingest) {
+              $object->ingestDatastream($ds);
+            }
+          }
+          else {
+            // Generate a new datastream.
             drush_log(t('Generating datastream @ds for object @objectid', array('@ds' => $dsid, '@objectid' => $objectid)), 'notice');
-	    if ($dsid === 'JPG') {
-	      if (module_load_include('inc', 'islandora_large_image', 'includes/derivatives') !== FALSE) {
-		islandora_large_image_create_jpg_derivative($object, FALSE);
+            if ($dsid === 'JPG') {
+              if (module_load_include('inc', 'islandora_large_image', 'includes/derivatives') !== FALSE) {
+                islandora_large_image_create_jpg_derivative($object, FALSE);
               }
-	    }
-	    elseif ($dsid === 'JP2') {
-	      if (module_load_include('inc', 'islandora_large_image', 'includes/derivatives') !== FALSE) {
-		islandora_large_image_create_jp2_derivative($object, FALSE);
+            }
+            elseif ($dsid === 'JP2') {
+              if (module_load_include('inc', 'islandora_large_image', 'includes/derivatives') !== FALSE) {
+                islandora_large_image_create_jp2_derivative($object, FALSE);
               }
-	    }
-	    elseif ($dsid === 'TN') {
-	      if (module_load_include('inc', 'islandora_large_image', 'includes/derivatives') !== FALSE) {
-		islandora_large_image_create_tn_derivative($object, FALSE);
+            }
+            elseif ($dsid === 'TN') {
+              if (module_load_include('inc', 'islandora_large_image', 'includes/derivatives') !== FALSE) {
+                islandora_large_image_create_tn_derivative($object, FALSE);
               }
-	    }
-	    elseif ($dsid === 'PDF') {
-	      if (module_load_include('inc', 'islandora_solution_pack_pdf', 'includes/derivatives') !== FALSE) {
-	        islandora_pdf_add_pdfa_derivative($object, FALSE);
+            }
+            elseif ($dsid === 'PDF') {
+              if (module_load_include('inc', 'islandora_solution_pack_pdf', 'includes/derivatives') !== FALSE) {
+                islandora_pdf_add_pdfa_derivative($object, FALSE);
               }
-	    }
-	    elseif ($dsid === 'OCR') {
-	      if (module_load_include('inc', 'islandora_ocr', 'includes/derivatives') !== FALSE) {
-		islandora_ocr_derive_ocr($object, FALSE);
+            }
+            elseif ($dsid === 'OCR') {
+              if (module_load_include('inc', 'islandora_ocr', 'includes/derivatives') !== FALSE) {
+                islandora_ocr_derive_ocr($object, FALSE);
               }
-	    }
-	    elseif ($dsid === 'HOCR') {
-	      if (module_load_include('inc', 'islandora_ocr', 'includes/derivatives') !== FALSE) {
-	        islandora_ocr_derive_hocr($object, FALSE);
+            }
+            elseif ($dsid === 'HOCR') {
+              if (module_load_include('inc', 'islandora_ocr', 'includes/derivatives') !== FALSE) {
+                islandora_ocr_derive_hocr($object, FALSE);
               }
-	    }
-	    elseif ($dsid === 'HDL') {
-	      if (module_load_include('inc', 'islandora_handle', 'includes/derivatives') !== FALSE) {
-		$result = islandora_handle_append_handles_from_configuration($object);
-		if (isset($result) && $result['success'] === TRUE) {
-		  islandora_handle_add_to_dc_datastream($object);
+            }
+            elseif ($dsid === 'HDL') {
+              if (module_load_include('inc', 'islandora_handle', 'includes/derivatives') !== FALSE) {
+                $result = islandora_handle_append_handles_from_configuration($object);
+                if (isset($result) && $result['success'] === TRUE) {
+                  islandora_handle_add_to_dc_datastream($object);
                 }
-	      }
-	    }
-	    elseif ($dsid === 'DIMENSIONS') {
-	      if ($object['JP2']) {
-		if (module_load_include('inc', 'islandora_paged_content', 'includes/utilities') !== FALSE) {
-		  islandora_paged_content_add_dimensions_relationships($object);
+              }
+            }
+            elseif ($dsid === 'DIMENSIONS') {
+              if ($object['JP2']) {
+                if (module_load_include('inc', 'islandora_paged_content', 'includes/utilities') !== FALSE) {
+                  islandora_paged_content_add_dimensions_relationships($object);
                 }
-	      }
-	    }
-	  }
+              }
+            }
+          }
         }
       }
     }

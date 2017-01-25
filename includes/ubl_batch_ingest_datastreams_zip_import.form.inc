@@ -22,6 +22,14 @@ function ubl_batch_ingest_datastreams_import_form(array $form, array &$form_stat
   }
 }
 
+/**
+ * The form for handling the submit of ingest of datastreams.
+ *
+ * @param array $form
+ *   The Drupal form definition.
+ * @param array $form_state
+ *   The Drupal form state.
+ */
 function ubl_batch_ingest_datastreams_import_form_submit(array $form, array &$form_state) {
   if (isset($_SESSION['ubl_batch_ingest_datastreams_ingest_objects'])) {
     return ubl_batch_ingest_datastreams_confirm_form_submit($form, $form_state);
@@ -551,7 +559,7 @@ function find_fedora_object_ids($identifier, $query_field = "catch_all_fields_mt
     if ($objid) {
       $objectids[] = $objid;
       if (count($objectids) > 1) {
-        // Limit the number of object ids found to 2, because it is not useful to find more.
+        // Limit the number of object ids found to 2, cause we don't need more.
         break;
       }
     }
