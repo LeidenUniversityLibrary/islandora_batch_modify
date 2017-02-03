@@ -510,8 +510,8 @@ function ubl_batch_ingest_datastreams_operation_finished() {
  */
 function find_fedora_object_ids($identifier, $query_field = "catch_all_fields_mt") {
   module_load_include('inc', 'islandora', 'includes/utilities');
-  module_load_include('inc', 'islandora_solr_search', 'includes/query_processor');
-  module_load_include('inc', 'islandora_solr_search', 'includes/utilities');
+  module_load_include('inc', 'islandora_solr', 'includes/query_processor');
+  module_load_include('inc', 'islandora_solr', 'includes/utilities');
 
   static $alreadyfound = array();
 
