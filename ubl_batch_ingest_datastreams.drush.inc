@@ -66,7 +66,7 @@ function drush_ubl_batch_ingest_datastreams_batch_ingest_datastreams() {
         }
         $objectid = $data[0];
 
-        $foundobject = find_fedora_object_ids($objectid);
+        $foundobject = find_fedora_object_ids($objectid, TRUE);
 
         if (count($foundobject) != 1) {
           // This is a header, so skip it.
@@ -102,7 +102,7 @@ function drush_ubl_batch_ingest_datastreams_batch_ingest_datastreams() {
         }
       }
 
-      $objects = find_fedora_object_ids($objectid);
+      $objects = find_fedora_object_ids($objectid, TRUE);
 
       if (count($objects) == 0) {
         drush_log(t("Found no object for id @objectid", array("@objectid" => $objectid)), 'error');
