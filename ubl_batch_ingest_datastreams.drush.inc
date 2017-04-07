@@ -192,7 +192,12 @@ function drush_ubl_batch_ingest_datastreams_batch_ingest_datastreams() {
             }
             elseif ($dsid === 'HDL') {
               if (module_load_include('inc', 'islandora_handle', 'includes/derivatives') !== FALSE) {
-                $result = islandora_handle_append_handles_from_configuration($object);
+                if (function_exists('islandora_handle_append_handle_from_configuration')) {
+                  $result = islandora_handle_append_handle_from_configuration($object, FALSE, array('destination_dsid' => 'MODS'));
+                }
+                else if (function_exists('islandora_handle_append_handles_from_configuration')) {
+                  $result = islandora_handle_append_handles_from_configuration($object, FALSE, array('destination_dsid' => 'MODS'));
+                }
                 if (isset($result) && $result['success'] === TRUE) {
                   islandora_handle_add_to_dc_datastream($object);
                 }
