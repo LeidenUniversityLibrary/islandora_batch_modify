@@ -482,10 +482,16 @@ function ubl_batch_ingest_datastreams_operation($params, &$context) {
         islandora_ocr_derive_hocr($object, FALSE);
       }
       elseif ($dsid === 'HDL') {
-        module_load_include('inc', 'islandora_handle', 'includes/derivatives');
-        $result = islandora_handle_append_handles_from_configuration($object);
-        if (isset($result) && $result['success'] === TRUE) {
-          islandora_handle_add_to_dc_datastream($object);
+        if (module_load_include('inc', 'islandora_handle', 'includes/derivatives') !== FALSE) {
+          if (function_exists('islandora_handle_append_handle_from_configuration')) {
+            $result = islandora_handle_append_handle_from_configuration($object, FALSE, array('destination_dsid' => 'MODS'));
+          }
+          else if (function_exists('islandora_handle_append_handles_from_configuration')) {
+            $result = islandora_handle_append_handles_from_configuration($object, FALSE, array('destination_dsid' => 'MODS'));
+          }
+          if (isset($result) && $result['success'] === TRUE) {
+            islandora_handle_add_to_dc_datastream($object);
+          }
         }
       }
       elseif ($dsid === 'DIMENSIONS') {
