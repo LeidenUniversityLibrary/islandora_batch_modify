@@ -557,7 +557,7 @@ function find_fedora_object_ids($identifier, $exactmatch = FALSE, $query_field =
     return $alreadyfound[$search];
   }
 
-  $qp->buildAndExecuteQuery($search);
+  $qp->buildAndExecuteQuery($search, NULL, FALSE);
 
   $r = $qp->islandoraSolrResult;
 
