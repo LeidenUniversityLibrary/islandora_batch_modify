@@ -159,35 +159,42 @@ function drush_ubl_batch_ingest_datastreams_batch_ingest_datastreams() {
           }
           else {
             // Generate a new datastream.
+            $success = FALSE;
             drush_log(t('Generating datastream @ds for object @objectid', array('@ds' => $dsid, '@objectid' => $objectid)), 'notice');
             if ($dsid === 'JPG') {
               if (module_load_include('inc', 'islandora_large_image', 'includes/derivatives') !== FALSE) {
                 islandora_large_image_create_jpg_derivative($object, FALSE);
+                $success = TRUE;
               }
             }
             elseif ($dsid === 'JP2') {
               if (module_load_include('inc', 'islandora_large_image', 'includes/derivatives') !== FALSE) {
                 islandora_large_image_create_jp2_derivative($object, FALSE);
+                $success = TRUE;
               }
             }
             elseif ($dsid === 'TN') {
               if (module_load_include('inc', 'islandora_large_image', 'includes/derivatives') !== FALSE) {
                 islandora_large_image_create_tn_derivative($object, FALSE);
+                $success = TRUE;
               }
             }
             elseif ($dsid === 'PDF') {
               if (module_load_include('inc', 'islandora_solution_pack_pdf', 'includes/derivatives') !== FALSE) {
                 islandora_pdf_add_pdfa_derivative($object, FALSE);
+                $success = TRUE;
               }
             }
             elseif ($dsid === 'OCR') {
               if (module_load_include('inc', 'islandora_ocr', 'includes/derivatives') !== FALSE) {
                 islandora_ocr_derive_ocr($object, FALSE);
+                $success = TRUE;
               }
             }
             elseif ($dsid === 'HOCR') {
               if (module_load_include('inc', 'islandora_ocr', 'includes/derivatives') !== FALSE) {
                 islandora_ocr_derive_hocr($object, FALSE);
+                $success = TRUE;
               }
             }
             elseif ($dsid === 'HDL') {
@@ -200,6 +207,7 @@ function drush_ubl_batch_ingest_datastreams_batch_ingest_datastreams() {
                 }
                 if (isset($result) && $result['success'] === TRUE) {
                   islandora_handle_add_to_dc_datastream($object);
+                  $success = TRUE;
                 }
               }
             }
@@ -207,8 +215,24 @@ function drush_ubl_batch_ingest_datastreams_batch_ingest_datastreams() {
               if ($object['JP2']) {
                 if (module_load_include('inc', 'islandora_paged_content', 'includes/utilities') !== FALSE) {
                   islandora_paged_content_add_dimensions_relationships($object);
+                  $success = TRUE;
                 }
               }
+            }
+            elseif ($dsid === 'PROXY_MP3') {
+              if (module_load_include('inc', 'islandora_audio', 'includes/derivatives') !== FALSE) {
+                islandora_audio_create_mp3($object);
+                $success = TRUE;
+              }
+            }
+            elseif ($dsid === 'TECHMD') {
+              if (module_load_include('inc', 'islandora_fits', 'includes/derivatives') !== FALSE) {
+                islandora_fits_create_techmd($object);
+                $success = TRUE;
+              }
+            }
+            if (!$success) {
+              drush_log(t('Cannot generate @ds for object @objectid', array('@ds' => $dsid, '@objectid' => $objectid)), 'warning');
             }
           }
         }
