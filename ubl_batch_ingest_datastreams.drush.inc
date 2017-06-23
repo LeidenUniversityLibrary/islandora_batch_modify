@@ -221,13 +221,13 @@ function drush_ubl_batch_ingest_datastreams_batch_ingest_datastreams() {
             }
             elseif ($dsid === 'PROXY_MP3') {
               if (module_load_include('inc', 'islandora_audio', 'includes/derivatives') !== FALSE) {
-                islandora_audio_create_mp3($object);
+                islandora_audio_create_mp3($object, FALSE);
                 $success = TRUE;
               }
             }
             elseif ($dsid === 'TECHMD') {
               if (module_load_include('inc', 'islandora_fits', 'includes/derivatives') !== FALSE) {
-                islandora_fits_create_techmd($object);
+                islandora_fits_create_techmd($object, FALSE, array('source_dsid' => 'OBJ'));
                 $success = TRUE;
               }
             }
