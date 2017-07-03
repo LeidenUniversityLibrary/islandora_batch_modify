@@ -1,22 +1,22 @@
 <?php
 /**
  * @file
- * Functions for batch ingesting datastreams via drush.
+ * Functions for batch modifications via drush.
  */
 
 /**
  * Implements hook_drush_command().
  */
-function ubl_batch_ingest_datastreams_drush_command() {
-  $items['batch_ingest_datastreams'] = array(
+function islandora_batch_modify_drush_command() {
+  $items['islandora_batch_modify'] = array(
     'description' => 'Ingests or generates datastreams for objects found in a CSV file.',
     'options' => array(
       'csvfile' => 'A absolute path to an existing CSV file, containing lines with 3 values: an object id, a datastream id and optionally a absolute path to a datastream file.',
     ),
-    'aliases' => array('bid'),
+    'aliases' => array('ibm'),
     'examples' => array(
-      'drush --user=admin batch_ingest_datastreams --csvfile=/tmp/test.csv',
-      'drush --user=admin bid --csvfile=/tmp/test.csv',
+      'drush --user=admin islandora_batch_modify --csvfile=/tmp/test.csv',
+      'drush --user=admin ibm --csvfile=/tmp/test.csv',
     ),
   );
   return $items;
@@ -25,7 +25,7 @@ function ubl_batch_ingest_datastreams_drush_command() {
 /**
  * Implements drush_hook_COMMAND_validate().
  */
-function drush_ubl_batch_ingest_datastreams_batch_ingest_datastreams_validate() {
+function drush_islandora_batch_modify_islandora_batch_modify_validate() {
   $csvfile = drush_get_option('csvfile');
 
   if (substr($csvfile, 0, 1) !== DIRECTORY_SEPARATOR) {
@@ -41,8 +41,8 @@ function drush_ubl_batch_ingest_datastreams_batch_ingest_datastreams_validate() 
 /**
  * Implements drush_hook_COMMAND().
  */
-function drush_ubl_batch_ingest_datastreams_batch_ingest_datastreams() {
-  module_load_include('inc', 'ubl_batch_ingest_datastreams', 'includes/ubl_batch_ingest_datastreams_zip_import.form');
+function drush_islandora_batch_modify_islandora_batch_modify() {
+  module_load_include('inc', 'islandora_batch_modify', 'includes/ip_import.form');
   $csvfile = drush_get_option('csvfile');
 
   // TODO: below is simular to zip_import.form code. Make one function for this.

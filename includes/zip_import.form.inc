@@ -13,12 +13,12 @@
  * @param array $form_state
  *   The Drupal form state.
  */
-function ubl_batch_ingest_datastreams_import_form(array $form, array &$form_state) {
-  if (isset($_SESSION['ubl_batch_ingest_datastreams_ingest_objects'])) {
-    return ubl_batch_ingest_datastreams_confirm_form($form, $form_state);
+function islandora_batch_modify_import_form(array $form, array &$form_state) {
+  if (isset($_SESSION['islandora_batch_modify_ingest_objects'])) {
+    return islandora_batch_modify_confirm_form($form, $form_state);
   }
   else {
-    return ubl_batch_ingest_datastreams_import_zip_or_csv_form($form, $form_state);
+    return islandora_batch_modify_import_zip_or_csv_form($form, $form_state);
   }
 }
 
@@ -30,12 +30,12 @@ function ubl_batch_ingest_datastreams_import_form(array $form, array &$form_stat
  * @param array $form_state
  *   The Drupal form state.
  */
-function ubl_batch_ingest_datastreams_import_form_submit(array $form, array &$form_state) {
-  if (isset($_SESSION['ubl_batch_ingest_datastreams_ingest_objects'])) {
-    return ubl_batch_ingest_datastreams_confirm_form_submit($form, $form_state);
+function islandora_batch_modify_import_form_submit(array $form, array &$form_state) {
+  if (isset($_SESSION['islandora_batch_modify_ingest_objects'])) {
+    return islandora_batch_modify_confirm_form_submit($form, $form_state);
   }
   else {
-    return ubl_batch_ingest_datastreams_import_zip_or_csv_form_submit($form, $form_state);
+    return islandora_batch_modify_import_zip_or_csv_form_submit($form, $form_state);
   }
 }
 
@@ -47,7 +47,7 @@ function ubl_batch_ingest_datastreams_import_form_submit(array $form, array &$fo
  * @param array $form_state
  *   The Drupal form state.
  */
-function ubl_batch_ingest_datastreams_import_zip_or_csv_form(array $form, array &$form_state) {
+function islandora_batch_modify_import_zip_or_csv_form(array $form, array &$form_state) {
   $extensions = array('zip csv');
   $upload_size = min((int) ini_get('post_max_size'), (int) ini_get('upload_max_filesize'));
   $form['file'] = array(
@@ -76,7 +76,7 @@ function ubl_batch_ingest_datastreams_import_zip_or_csv_form(array $form, array 
  * @param array $form_state
  *   The Drupal form state.
  */
-function ubl_batch_ingest_datastreams_import_zip_or_csv_form_submit(array $form, array &$form_state) {
+function islandora_batch_modify_import_zip_or_csv_form_submit(array $form, array &$form_state) {
   $uploadedfile = file_load($form_state['values']['file']);
 
   $csvpath = FALSE;
@@ -263,15 +263,15 @@ function ubl_batch_ingest_datastreams_import_zip_or_csv_form_submit(array $form,
     fclose($fh);
   }
 
-  $_SESSION['ubl_batch_ingest_datastreams_ingest_objects'] = $ingest_objects;
-  $_SESSION['ubl_batch_ingest_datastreams_finished'] = FALSE;
+  $_SESSION['islandora_batch_modify_ingest_objects'] = $ingest_objects;
+  $_SESSION['islandora_batch_modify_finished'] = FALSE;
 }
 
 /**
  * The form for confirming the ingest datastreams.
  */
-function ubl_batch_ingest_datastreams_confirm_form(array $form, array &$form_state) {
-  $ingest_objects = $_SESSION['ubl_batch_ingest_datastreams_ingest_objects'];
+function islandora_batch_modify_confirm_form(array $form, array &$form_state) {
+  $ingest_objects = $_SESSION['islandora_batch_modify_ingest_objects'];
   $options = array();
   $defaultvalues = array();
   if (count($form_state["build_info"]["args"]) == 1) {
@@ -352,7 +352,7 @@ function ubl_batch_ingest_datastreams_confirm_form(array $form, array &$form_sta
       '#options' => $options,
       '#default_value' => $defaultvalues,
       '#empty' => t('No data available.'),
-      '#disabled' => ($_SESSION['ubl_batch_ingest_datastreams_finished']),
+      '#disabled' => ($_SESSION['islandora_batch_modify_finished']),
     );
     $form['table'] = $table;
 
@@ -360,7 +360,7 @@ function ubl_batch_ingest_datastreams_confirm_form(array $form, array &$form_sta
       '#type' => 'submit',
       '#value' => t('Back to upload'),
     );
-    if (!$_SESSION['ubl_batch_ingest_datastreams_finished']) {
+    if (!$_SESSION['islandora_batch_modify_finished']) {
       $form['submit'] = array(
         '#type' => 'submit',
         '#value' => t('Ingest datastreams'),
@@ -374,14 +374,14 @@ function ubl_batch_ingest_datastreams_confirm_form(array $form, array &$form_sta
 /**
  * Submitting the form for confirming the ingest of datastreams.
  */
-function ubl_batch_ingest_datastreams_confirm_form_submit(array $form, array &$form_state) {
+function islandora_batch_modify_confirm_form_submit(array $form, array &$form_state) {
   if ($form_state['clicked_button']['#id'] === 'edit-cancel') {
-    unset($_SESSION['ubl_batch_ingest_datastreams_ingest_objects']);
-    unset($_SESSION['ubl_batch_ingest_datastreams_finished']);
+    unset($_SESSION['islandora_batch_modify_ingest_objects']);
+    unset($_SESSION['islandora_batch_modify_finished']);
 
     return;
   }
-  if ($_SESSION['ubl_batch_ingest_datastreams_finished']) {
+  if ($_SESSION['islandora_batch_modify_finished']) {
     // Do not change anything if already finished.
     return;
   }
@@ -392,9 +392,9 @@ function ubl_batch_ingest_datastreams_confirm_form_submit(array $form, array &$f
     $objectid = $parts[0];
     $dsid = $parts[1];
     if ($isneeded) {
-      $params = $_SESSION['ubl_batch_ingest_datastreams_ingest_objects'][$objectid][$dsid];
+      $params = $_SESSION['islandora_batch_modify_ingest_objects'][$objectid][$dsid];
       $params['dsid'] = $dsid;
-      $_SESSION['ubl_batch_ingest_datastreams_ingest_objects'][$objectid][$dsid]['enabled'] = TRUE;
+      $_SESSION['islandora_batch_modify_ingest_objects'][$objectid][$dsid]['enabled'] = TRUE;
 
       $object = $params['object'];
       $is_collection = in_array('islandora:collectionCModel', $object->models);
@@ -407,12 +407,12 @@ function ubl_batch_ingest_datastreams_confirm_form_submit(array $form, array &$f
           if ($objincol) {
             $newparams = $params;
             $newparams["object"] = $objincol;
-            $operations[] = array('ubl_batch_ingest_datastreams_operation', array($newparams));
+            $operations[] = array('islandora_batch_modify_operation', array($newparams));
           }
         }
       }
       else {
-        $operations[] = array('ubl_batch_ingest_datastreams_operation', array($params));
+        $operations[] = array('islandora_batch_modify_operation', array($params));
       }
     }
   }
@@ -423,8 +423,8 @@ function ubl_batch_ingest_datastreams_confirm_form_submit(array $form, array &$f
       'init_message' => t("Preparing ..."),
       'progress_message' => t('Time elapsed: @elapsed <br/>Estimated time remaining @estimate.'),
       'error_message' => t('An error has occurred.'),
-      'file' => drupal_get_path('module', 'ubl_batch_ingest_datastreams') . '/includes/ubl_batch_ingest_datastreams_zip_import.form.inc',
-      'finished' => 'ubl_batch_ingest_datastreams_operation_finished',
+      'file' => drupal_get_path('module', 'islandora_batch_modify') . '/includes/zip_import.form.inc',
+      'finished' => 'islandora_batch_modify_operation_finished',
     );
     batch_set($batch);
   }
@@ -433,7 +433,7 @@ function ubl_batch_ingest_datastreams_confirm_form_submit(array $form, array &$f
 /**
  * Process the ingestion of datastreams per object.
  */
-function ubl_batch_ingest_datastreams_operation($params, &$context) {
+function islandora_batch_modify_operation($params, &$context) {
   if (array_key_exists('object', $params)) {
     $object = $params['object'];
     $dsid = $params['dsid'];
@@ -507,8 +507,8 @@ function ubl_batch_ingest_datastreams_operation($params, &$context) {
 /**
  * Finish process the ingestion of datastreams per object.
  */
-function ubl_batch_ingest_datastreams_operation_finished() {
-  $_SESSION['ubl_batch_ingest_datastreams_finished'] = TRUE;
+function islandora_batch_modify_operation_finished() {
+  $_SESSION['islandora_batch_modify_finished'] = TRUE;
 }
 
 /**

@@ -1,6 +1,6 @@
-name = Batch Ingest Datastreams
-description = Adds functionality to add or replace datastreams for existing objects in batch
-package = UBL
+name = Islandora Batch Modify
+description = Adds functionality to batch modify islandora object, for example add, replace or regenerate datastreams for existing objects, or modify labels.
+package = Islandora Tools
 dependencies[] = islandora
 dependencies[] = islandora_solr
 version = "7.x-1.x-dev"
