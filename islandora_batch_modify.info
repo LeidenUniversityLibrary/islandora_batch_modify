@@ -3,5 +3,5 @@ description = Adds functionality to batch modify islandora object, for example a
 package = Islandora Tools
 dependencies[] = islandora
 dependencies[] = islandora_solr
-version = "7.x-1.x-dev"
+version = "7.x-2.x-dev"
 core = "7.x"
