@@ -63,7 +63,7 @@ function islandora_batch_modify_import_zip_or_csv_form(array $form, array &$form
   );
   $form['submit'] = array(
     '#type' => 'submit',
-    '#value' => t('Ingest datastreams'),
+    '#value' => t('Upload file'),
   );
   return $form;
 }
@@ -77,9 +77,12 @@ function islandora_batch_modify_import_zip_or_csv_form(array $form, array &$form
  *   The Drupal form state.
  */
 function islandora_batch_modify_import_zip_or_csv_form_submit(array $form, array &$form_state) {
+  module_load_include('inc', 'islandora_batch_modify', 'includes/utilities');
+
   $uploadedfile = file_load($form_state['values']['file']);
 
   $csvpath = FALSE;
+  $files = array();
   if ($uploadedfile->filemime === 'application/zip') {
     $zipfile = $uploadedfile;
     $zippath = drupal_realpath($zipfile->uri);
@@ -98,7 +101,6 @@ function islandora_batch_modify_import_zip_or_csv_form_submit(array $form, array
       return;
     }
     $count = $zip->numFiles;
-    $files = array();
     for ($i = 0; $i < $count; $i++) {
       $name = $zip->getNameIndex($i);
       $path_info = pathinfo($name);
@@ -139,130 +141,133 @@ function islandora_batch_modify_import_zip_or_csv_form_submit(array $form, array
     $csvpath = drupal_realpath($uploadedfile->uri);
   }
 
-  $generatable_dsids = array();
-  if (module_exists('islandora_large_image')) {
-    $generatable_dsids[] = 'JP2';
-    $generatable_dsids[] = 'JPG';
-    $generatable_dsids[] = 'TN';
-  }
-  if (module_exists('islandora_solution_pack_pdf')) {
-    $generatable_dsids[] = 'PDF';
-  }
-  if (module_exists('islandora_ocr')) {
-    $generatable_dsids[] = 'OCR';
-    $generatable_dsids[] = 'HOCR';
-  }
-  if (module_exists('islandora_handle')) {
-    $generatable_dsids[] = 'HDL';
-  }
-  if (module_exists('islandora_paged_content')) {
-    $generatable_dsids[] = 'DIMENSIONS';
-  }
+  $ingest_objects = islandora_batch_modify_parse_csv_file($csvpath, 'drupal_set_message');
 
-  ini_set("auto_detect_line_endings", "1");
-  $delimit = "\t";
-  $ingest_objects = array();
-  $linenr = 0;
-  if (($fh = fopen($csvpath, "r")) !== FALSE) {
-    while (($data = fgetcsv($fh, 0, $delimit)) !== FALSE) {
-      $linenr++;
-      if ($linenr == 1) {
-        // Treat header special.
-        if (count($data) == 1) {
-          $delimit = ",";
-          $data = str_getcsv($data[0], $delimit);
-        }
-        if (count($data) == 1) {
-          $delimit = ";";
-          $data = str_getcsv($data[0], $delimit);
-        }
-        $objectid = $data[0];
-
-        $foundobject = find_fedora_object_ids($objectid, TRUE);
-
-        if (count($foundobject) != 1) {
-          // This is a header, so skip it.
-          continue;
-        }
-      }
-
-      if (count($data) == 1 && trim($data[0]) === "") {
-        continue;
-      }
-      if (count($data) != 3 && count($data) != 2) {
-        drupal_set_message(t("Line @linenr has @countcolumn columns, but should be 3",
-          array(
-            "@linenr" => $linenr,
-            "@countcolumn" => count($data),
-          )), "error");
-        if (count($data) < 2) {
-          // Just skip an empty line.
-          continue;
-        }
-      }
-
-      $objectid = $data[0];
-      $filedsid = $data[1];
-      $filepath = NULL;
-      if (isset($data[2])) {
-        $filename = trim($data[2]);
-        if (!empty($filename)) {
-          if (array_key_exists($filename, $files)) {
-            $filepath = $files[$filename];
-          }
-          else {
-            drupal_set_message(t("File @filename in CSV does not exist in ZIP file", array("@filename" => $filename)), 'error');
-          }
-        }
-      }
-
+  if ($ingest_objects) {
+    $model2generate = array();
+    foreach ($ingest_objects as $objectid => $dsid2info) {
       $objects = find_fedora_object_ids($objectid, TRUE);
-
-      if (empty($filedsid)) {
-        drupal_set_message(t("Found no DSID for id @objectid", array("@objectid" => $objectid)), 'warning');
-      }
-      if (array_key_exists($objectid, $ingest_objects) && array_key_exists($filedsid, $ingest_objects[$objectid])) {
-        drupal_set_message(t("Object with id @objectid already has a DSID of type @dsid", array("@objectid" => $objectid, "@dsid" => $filedsid)), 'warning');
-      }
-
-      if (array_key_exists($objectid, $ingest_objects) !== TRUE) {
-        $ingest_objects[$objectid] = array();
-      }
-      $enable = TRUE;
-      $ingest_objects[$objectid][$filedsid] = array();
-
-      if (count($objects) == 1) {
-        $ingest_objects[$objectid][$filedsid]["object"] = islandora_object_load($objects[0]);
-      }
-      else {
-        $enable = FALSE;
-        if (count($objects) > 1) {
-          $ingest_objects[$objectid][$filedsid]["objmsg"] = t("multiple");
+  
+      foreach ($dsid2info as $dsid => $info) {
+        $enable = TRUE;
+        if (count($objects) == 1) {
+          $ingest_objects[$objectid][$dsid]["object"] = islandora_object_load($objects[0]);
         }
         else {
-          $ingest_objects[$objectid][$filedsid]["objmsg"] = t("none");
-        }
-        $ingest_objects[$objectid][$filedsid]['disallow'] = TRUE;
-      }
-      if (file_exists($filepath) === TRUE) {
-        $ingest_objects[$objectid][$filedsid]["filename"] = $filename;
-        $ingest_objects[$objectid][$filedsid]["filepath"] = $filepath;
-      }
-      else {
-        if (!in_array($filedsid, $generatable_dsids)) {
           $enable = FALSE;
-          $ingest_objects[$objectid][$filedsid]['disallow'] = TRUE;
-          drupal_set_message(t("Cannot generate @dsid for @objectid", array("@dsid" => $filedsid, "@objectid" => $objectid)), "warning");
+          if (count($objects) > 1) {
+            $ingest_objects[$objectid][$dsid]["action"] = t("None: multiple objects found");
+          }
+          else {
+            $ingest_objects[$objectid][$dsid]["action"] = t("None: no object found");
+          }
         }
-      }
-      if (empty($filedsid)) {
-        $enable = FALSE;
-      }
-      $ingest_objects[$objectid][$filedsid]["enabled"] = $enable;
-    }
-    fclose($fh);
-  }
+        if (empty($dsid)) {
+          $ingest_objects[$objectid][$dsid]["action"] = t("None: nothing to do");
+          $enable = FALSE;
+        }
 
+        $filepath = NULL;
+        if ($enable && isset($info['value']) && strlen($info['value']) > 0) {
+          if ($info['is_about'] === 'datastream') {
+            $filename = $info['value'];
+            if (array_key_exists($filename, $files)) {
+              $filepath = $files[$filename];
+            }
+            if ($filepath && file_exists($filepath)) {
+              $ingest_objects[$objectid][$dsid]["filename"] = $filename;
+              $ingest_objects[$objectid][$dsid]["filepath"] = $filepath;
+              $ingest_objects[$objectid][$dsid]["action"] = t('Add @dsid', array('@dsid' => $dsid));
+            }
+            else {
+              $ingest_objects[$objectid][$dsid]["action"] = t('None: file not in ZIP');
+              $enable = FALSE;
+            }
+          }
+          else if ($info['is_about'] === 'property') {
+            if ((substr($dsid, -6) === ':state') && !in_array($info['value'], array('A', 'I', 'D'))) {
+              $ingest_objects[$objectid][$dsid]["action"] = t('None: invalid value');
+              $enable = FALSE;
+            }
+            else {
+              $ingest_objects[$objectid][$dsid]["action"] = t('Set value');
+            }
+          }
+          else if ($info['is_about'] === 'collection') {
+            $collection = islandora_object_load($info['value']);
+            $is_collection = $collection && in_array('islandora:collectionCModel', $collection->models); 
+            if ($is_collection) {
+              if ($dsid === 'add_to_collection') {
+                $ingest_objects[$objectid][$dsid]["action"] = t('Add to collection');
+              }
+              else if ($dsid === 'remove_from_collection') {
+                $ingest_objects[$objectid][$dsid]["action"] = t('Remove from collection');
+              }
+              else {
+                $ingest_objects[$objectid][$dsid]["action"] = t('No action');
+                $enable = FALSE;
+              }
+            }
+            else {
+              $ingest_objects[$objectid][$dsid]["action"] = t('None: no collection');
+              $enable = FALSE;
+            }
+          }
+          else {
+            $ingest_objects[$objectid][$dsid]["action"] = t('No action');
+            $enable = FALSE;
+          }
+        }
+        else if ($enable) {
+          if ($info['is_about'] === 'datastream') {
+            if (isset($ingest_objects[$objectid][$dsid]["object"])) {
+              $object = $ingest_objects[$objectid][$dsid]["object"];
+              $strmodel = implode(',', $object->models);
+              module_load_include('inc', 'islandora', 'includes/utilitites');
+              if (isset($model2generate[$strmodel][$dsid])) {
+                $cangenerate = $model2generate[$strmodel][$dsid];
+              }
+              else {
+                if (isset($model2generate[$strmodel]['_gdsids'])) {
+                  $gdsids = $model2generate[$strmodel]['_gdsids'];
+                }
+                else {
+                  $gdsids = islandora_invoke_hook_list(ISLANDORA_DERIVATIVE_CREATION_HOOK, $object->models, array($object));
+                  $model2generate[$strmodel]['_gdsids'] = $gdsids;
+                }
+                $cangenerate = FALSE;
+                foreach ($gdsids as $gdsid) {
+                  if ($gdsid['destination_dsid'] === $dsid) {
+                    $cangenerate = TRUE;
+                  } 
+                }
+                $model2generate[$strmodel][$dsid] = $cangenerate;
+              }
+              
+              if ($cangenerate) {
+                if (isset($object[$dsid])) {
+                  $ingest_objects[$objectid][$dsid]["action"] = t('None: @dsid exists', array('@dsid' => $dsid));
+                  $enable = FALSE;
+                }
+                else {
+                  $ingest_objects[$objectid][$dsid]["action"] = t('Generate @dsid', array('@dsid' => $dsid));
+                }
+              }
+              else {
+                $ingest_objects[$objectid][$dsid]["action"] = t('None: cannot generate');
+                $enable = FALSE;
+              }
+            }
+          }
+          else {
+            $ingest_objects[$objectid][$dsid]["action"] = t('None: no value');
+            $enable = FALSE;
+          }
+        }
+        $ingest_objects[$objectid][$dsid]["hasaction"] = $enable;
+      }
+    }
+  } 
   $_SESSION['islandora_batch_modify_ingest_objects'] = $ingest_objects;
   $_SESSION['islandora_batch_modify_finished'] = FALSE;
 }
@@ -279,74 +284,14 @@ function islandora_batch_modify_confirm_form(array $form, array &$form_state) {
 
   }
   else {
-    foreach ($ingest_objects as $objectid => $dsids) {
-      foreach ($dsids as $dsid => $values) {
-        $key = $objectid . '_-_' . $dsid;
-        $object = NULL;
-        $is_collection = FALSE;
-        $options[$key]['objectid'] = check_plain($objectid);
-        if (array_key_exists('object', $values)) {
-          $object = $values['object'];
-          $is_collection = in_array('islandora:collectionCModel', $object->models);
-          $options[$key]['object'] = array(
-            'data' => array(
-              '#type' => 'link',
-              '#title' => filter_xss($object->id),
-              '#href' => "islandora/object/{$object->id}",
-            ),
-          );
-        }
-        else {
-          $options[$key]['object'] = $values["objmsg"];
-        }
-        if (array_key_exists("filename", $values)) {
-          $options[$key]['file'] = $values["filename"];
-        }
-        else {
-          $options[$key]['file'] = "-";
-        }
-        $options[$key]['dsid'] = $dsid;
-        if ($is_collection) {
-          $whichdesc = t("all @dsid's", array("@dsid" => $dsid));
-        }
-        else {
-          $whichdesc = $dsid;
-        }
-        if (!isset($object)) {
-          $options[$key]['action'] = t('No action');
-        }
-        elseif (array_key_exists('disallow', $values) && $values['disallow']) {
-          $options[$key]['action'] = t('Action not allowed');
-        }
-        elseif (!$is_collection && isset($object[$dsid])) {
-          if (array_key_exists("filename", $values)) {
-            $options[$key]['action'] = t('Replace @whichdesc', array('@whichdesc' => $whichdesc));
-          }
-          else {
-            $options[$key]['action'] = t('Regenerate @whichdesc', array('@whichdesc' => $whichdesc));
-          }
-        }
-        else {
-          if (array_key_exists("filename", $values)) {
-            $options[$key]['action'] = t('Add @whichdesc', array('@whichdesc' => $whichdesc));
-          }
-          else {
-            $options[$key]['action'] = t('Generate @whichdesc', array('@whichdesc' => $whichdesc));
-          }
-        }
-        if (array_key_exists("disallow", $values) && $values['disallow']) {
-          $options[$key]['#disabled'] = TRUE;
-        }
-        $defaultvalues[$key] = $values["enabled"];
-      }
-    }
+    $options = array();
+    $defaultvalues = array();
     $table = array(
       '#type' => 'tableselect',
       '#header' => array(
-        'objectid' => t('Object ID in CSV'),
-        'object' => t('Found item'),
-        'dsid' => t('DSID in CSV'),
-        'file' => t('File in CSV'),
+        'objectid' => t('Object ID'),
+        'what' => t('What'),
+        'value' => t('Value'),
         'action' => t('Action'),
       ),
       '#options' => $options,
@@ -354,6 +299,40 @@ function islandora_batch_modify_confirm_form(array $form, array &$form_state) {
       '#empty' => t('No data available.'),
       '#disabled' => ($_SESSION['islandora_batch_modify_finished']),
     );
+    if ($ingest_objects) {
+      foreach ($ingest_objects as $objectid => $modifywhats) {
+        foreach ($modifywhats as $modifywhat => $modifyinfo) {
+          $key = $objectid . '_-_' . $modifywhat;
+          $object = NULL;
+          $is_collection = FALSE;
+          if (isset($modifyinfo['object'])) {
+            $object = $modifyinfo['object'];
+            $is_collection = in_array('islandora:collectionCModel', $object->models);
+            $options[$key]['objectid'] = array(
+              'data' => array(
+                '#type' => 'link',
+                '#title' => filter_xss($objectid),
+                '#href' => "islandora/object/{$object->id}",
+              ),
+            );
+          }
+          else {
+            $options[$key]['objectid'] = check_plain($objectid);
+          }
+          if (isset($modifyinfo['value'])) {
+            $options[$key]['value'] = $modifyinfo["value"];
+          }
+          else {
+            $options[$key]['value'] = "-";
+          }
+          $options[$key]['what'] = $modifywhat;
+          $options[$key]['action'] = $modifyinfo['action'];
+          $defaultvalues[$key] = $modifyinfo["hasaction"];
+        }
+      }
+    }
+    $table['#options'] = $options;
+    $table['#default_value'] = $defaultvalues;
     $form['table'] = $table;
 
     $form['cancel'] = array(
@@ -363,7 +342,7 @@ function islandora_batch_modify_confirm_form(array $form, array &$form_state) {
     if (!$_SESSION['islandora_batch_modify_finished']) {
       $form['submit'] = array(
         '#type' => 'submit',
-        '#value' => t('Ingest datastreams'),
+        '#value' => t('Batch Modify'),
       );
     }
   }
@@ -386,34 +365,23 @@ function islandora_batch_modify_confirm_form_submit(array $form, array &$form_st
     return;
   }
   $operations = array();
-
   foreach ($form_state["values"]["table"] as $key => $isneeded) {
     $parts = explode("_-_", $key);
     $objectid = $parts[0];
-    $dsid = $parts[1];
+    $what = $parts[1];
     if ($isneeded) {
-      $params = $_SESSION['islandora_batch_modify_ingest_objects'][$objectid][$dsid];
-      $params['dsid'] = $dsid;
-      $_SESSION['islandora_batch_modify_ingest_objects'][$objectid][$dsid]['enabled'] = TRUE;
-
-      $object = $params['object'];
-      $is_collection = in_array('islandora:collectionCModel', $object->models);
-
-      if ($is_collection) {
-        list($count, $colobjs) = islandora_basic_collection_get_member_objects($object, -1, -1);
-
-        foreach ($colobjs as $colobj) {
-          $objincol = islandora_object_load($colobj['object']['value']);
-          if ($objincol) {
-            $newparams = $params;
-            $newparams["object"] = $objincol;
-            $operations[] = array('islandora_batch_modify_operation', array($newparams));
-          }
-        }
+      $params = $_SESSION['islandora_batch_modify_ingest_objects'][$objectid][$what];
+      if (isset($params['filepath'])) {
+        $params['value'] = $params['filepath'];
       }
-      else {
-        $operations[] = array('islandora_batch_modify_operation', array($params));
-      }
+      $params['what'] = $what;
+
+      $_SESSION['islandora_batch_modify_ingest_objects'][$objectid][$what]['hasaction'] = TRUE;
+
+      $operations[] = array('islandora_batch_modify_operation', array($params));
+    }
+    else {
+      $_SESSION['islandora_batch_modify_ingest_objects'][$objectid][$what]['hasaction'] = FALSE;
     }
   }
   if (count($operations) > 0) {
@@ -435,72 +403,12 @@ function islandora_batch_modify_confirm_form_submit(array $form, array &$form_st
  */
 function islandora_batch_modify_operation($params, &$context) {
   if (array_key_exists('object', $params)) {
-    $object = $params['object'];
-    $dsid = $params['dsid'];
+    module_load_include('inc', 'islandora_batch_modify', 'includes/utilities');
 
-    if (array_key_exists('filepath', $params)) {
-      $filepath = $params['filepath'];
-      $ingest = !isset($object[$dsid]);
-      if ($ingest) {
-        $mimetype = file_get_mimetype($filepath);
-        $ds = $object->constructDatastream($dsid, 'M');
-        $ds->label = $params['filename'];
-        $ds->mimeType = $mimetype;
-      }
-      else {
-        $ds = $object[$dsid];
-      }
-      $ds->setContentFromFile($filepath);
-      if ($ingest) {
-        $object->ingestDatastream($ds);
-      }
-    }
-    else {
-      // Generate a new datastream.
-      if ($dsid === 'JPG') {
-        module_load_include('inc', 'islandora_large_image', 'includes/derivatives');
-        islandora_large_image_create_jpg_derivative($object, FALSE);
-      }
-      elseif ($dsid === 'JP2') {
-        module_load_include('inc', 'islandora_large_image', 'includes/derivatives');
-        islandora_large_image_create_jp2_derivative($object, FALSE);
-      }
-      elseif ($dsid === 'TN') {
-        module_load_include('inc', 'islandora_large_image', 'includes/derivatives');
-        islandora_large_image_create_tn_derivative($object, FALSE);
-      }
-      elseif ($dsid === 'PDF') {
-        module_load_include('inc', 'islandora_solution_pack_pdf', 'includes/derivatives');
-        islandora_pdf_add_pdfa_derivative($object, FALSE);
-      }
-      elseif ($dsid === 'OCR') {
-        module_load_include('inc', 'islandora_ocr', 'includes/derivatives');
-        islandora_ocr_derive_ocr($object, FALSE);
-      }
-      elseif ($dsid === 'HOCR') {
-        module_load_include('inc', 'islandora_ocr', 'includes/derivatives');
-        islandora_ocr_derive_hocr($object, FALSE);
-      }
-      elseif ($dsid === 'HDL') {
-        if (module_load_include('inc', 'islandora_handle', 'includes/derivatives') !== FALSE) {
-          if (function_exists('islandora_handle_append_handle_from_configuration')) {
-            $result = islandora_handle_append_handle_from_configuration($object, FALSE, array('destination_dsid' => 'MODS'));
-          }
-          else if (function_exists('islandora_handle_append_handles_from_configuration')) {
-            $result = islandora_handle_append_handles_from_configuration($object, FALSE, array('destination_dsid' => 'MODS'));
-          }
-          if (isset($result) && $result['success'] === TRUE) {
-            islandora_handle_add_to_dc_datastream($object);
-          }
-        }
-      }
-      elseif ($dsid === 'DIMENSIONS') {
-        if ($object['JP2']) {
-          module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
-          islandora_paged_content_add_dimensions_relationships($object);
-        }
-      }
-    }
+    $object = $params['object'];
+    $modifywhat = $params['what'];
+
+    islandora_batch_modify_do_work_for_one($object, $modifywhat, $params, 'drupal_set_message', 'error');
   }
 }
 
@@ -511,103 +419,3 @@ function islandora_batch_modify_operation_finished() {
   $_SESSION['islandora_batch_modify_finished'] = TRUE;
 }
 
-/**
- * Finding the Fedora object IDs of objects by identifier.
- */
-function find_fedora_object_ids($identifier, $exactmatch = FALSE, $query_field = FALSE) {
-  module_load_include('inc', 'islandora', 'includes/utilities');
-  module_load_include('inc', 'islandora_solr', 'includes/query_processor');
-  module_load_include('inc', 'islandora_solr', 'includes/utilities');
-
-  static $alreadyfound = array();
-
-  if (islandora_is_valid_pid($identifier)) {
-    // This looks like a islandora object id.
-    if (array_key_exists($identifier, $alreadyfound)) {
-      return $alreadyfound[$identifier];
-    }
-
-    $obj = islandora_object_load($identifier);
-
-    if ($obj) {
-      $alreadyfound[$identifier] = array($identifier);
-
-      return $alreadyfound[$identifier];
-    }
-  }
-  static $qp = NULL;
-  static $qpc = 0;
-  if (is_null($qp) || $qpc > 10) {
-    // Get a fresh copy the first time and after each 10 queries.
-    // Apparently there are limitations on the amount of queries it can handle.
-    $qp = new IslandoraSolrQueryProcessor();
-    $qpc = 0;
-  }
-  $qpc++;
-
-  $escapedid = islandora_solr_lesser_escape($identifier);
-  if ($query_field) {
-    $search = "$query_field:$escapedid";
-  }
-  else {
-    $search = "catch_all_fields_mt:$escapedid";
-  }
-
-  if (array_key_exists($search, $alreadyfound)) {
-    return $alreadyfound[$search];
-  }
-
-  $qp->buildAndExecuteQuery($search, NULL, FALSE);
-
-  $r = $qp->islandoraSolrResult;
-
-  $numfound = $r['response']['numFound'];
-
-  $objectids = array();
-  for ($i = 0; $i < $numfound; $i++) {
-    $objid = $r['response']['objects'][$i]['PID'];
-
-    if ($exactmatch) {
-      $hasexactmatch = FALSE;
-      $solrdoc = $r['response']['objects'][$i]['solr_doc'];
-      if ($query_field) {
-        if ($solrdoc[$query_field] === $identifier) {
-          $hasexactmatch = TRUE;
-        }
-      }
-      else {
-        foreach ($solrdoc as $solrkey => $solrval) {
-          if (is_array($solrval)) {
-            foreach ($solrval as $sv) {
-              if ($sv === $identifier) {
-                $hasexactmatch = TRUE;
-                break 2;
-              }
-            }
-          }
-          else {
-            if ($solrval === $identifier) {
-              $hasexactmatch = TRUE;
-              break;
-            }
-          }
-        }
-      }
-      if (!$hasexactmatch) {
-        continue;
-      }
-    }
-
-    if ($objid) {
-      $objectids[] = $objid;
-      if (count($objectids) > 1) {
-        // Limit the number of object ids found to 2, cause we don't need more.
-        break;
-      }
-    }
-  }
-
-  $alreadyfound[$search] = $objectids;
-
-  return $objectids;
-}

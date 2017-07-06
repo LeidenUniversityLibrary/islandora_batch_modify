@@ -11,7 +11,7 @@ function islandora_batch_modify_drush_command() {
   $items['islandora_batch_modify'] = array(
     'description' => 'Ingests or generates datastreams for objects found in a CSV file.',
     'options' => array(
-      'csvfile' => 'A absolute path to an existing CSV file, containing lines with 3 values: an object id, a datastream id and optionally a absolute path to a datastream file.',
+      'csvfile' => 'An absolute path to an existing CSV file, containing lines with 3 values: an object id, a datastream id or property type, and optionally a absolute path to a datastream file or property value.',
     ),
     'aliases' => array('ibm'),
     'examples' => array(
@@ -25,7 +25,7 @@ function islandora_batch_modify_drush_command() {
 /**
  * Implements drush_hook_COMMAND_validate().
  */
-function drush_islandora_batch_modify_islandora_batch_modify_validate() {
+function drush_islandora_batch_modify_validate() {
   $csvfile = drush_get_option('csvfile');
 
   if (substr($csvfile, 0, 1) !== DIRECTORY_SEPARATOR) {
@@ -41,206 +41,16 @@ function drush_islandora_batch_modify_islandora_batch_modify_validate() {
 /**
  * Implements drush_hook_COMMAND().
  */
-function drush_islandora_batch_modify_islandora_batch_modify() {
-  module_load_include('inc', 'islandora_batch_modify', 'includes/ip_import.form');
+function drush_islandora_batch_modify() {
+  module_load_include('inc', 'islandora_batch_modify', 'includes/utilities');
   $csvfile = drush_get_option('csvfile');
 
-  // TODO: below is simular to zip_import.form code. Make one function for this.
-  ini_set("auto_detect_line_endings", "1");
-  $delimit = "\t";
-  $ingest_objects = array();
-  $linenr = 0;
-  $haserror = FALSE;
-  if (($fh = fopen($csvfile, "r")) !== FALSE) {
-    while (($data = fgetcsv($fh, 0, $delimit)) !== FALSE) {
-      $linenr++;
-      if ($linenr == 1) {
-        // Treat header special.
-        if (count($data) == 1) {
-          $delimit = ",";
-          $data = str_getcsv($data[0], $delimit);
-        }
-        if (count($data) == 1) {
-          $delimit = ";";
-          $data = str_getcsv($data[0], $delimit);
-        }
-        $objectid = $data[0];
+  $workinfo = islandora_batch_modify_parse_csv_file($csvfile, 'drush_log'); 
 
-        $foundobject = find_fedora_object_ids($objectid, TRUE);
-
-        if (count($foundobject) != 1) {
-          // This is a header, so skip it.
-          continue;
-        }
-      }
-
-      if (count($data) == 1 && trim($data[0]) === "") {
-        // Just skip an empty.
-        continue;
-      }
-      if (count($data) != 3 && count($data) != 2) {
-        drush_log(t("Line @linenr has @countcolumn columns, but should be 3",
-          array(
-            "@linenr" => $linenr,
-            "@countcolumn" => count($data),
-          )), "error");
-        $haserror = TRUE;
-        break;
-      }
-
-      $objectid = $data[0];
-      $filedsid = $data[1];
-      $filepath = NULL;
-      if (isset($data[2])) {
-        $filepath = trim($data[2]);
-        if (!empty($filepath)) {
-          if (!is_file($filepath)) {
-            drush_log(t("File @filepath in CSV does not exist.", array("@filepath" => $filepath)), 'error');
-            $haserror = TRUE;
-            break;
-          }
-        }
-      }
-
-      $objects = find_fedora_object_ids($objectid, TRUE);
-
-      if (count($objects) == 0) {
-        drush_log(t("Found no object for id @objectid", array("@objectid" => $objectid)), 'error');
-        $haserror = TRUE;
-        break;
-      }
-      if (count($objects) > 1) {
-        drush_log(t("Found multiple objects for id @objectid", array("@objectid" => $objectid)), 'error');
-        $haserror = TRUE;
-        break;
-      }
-
-      if (empty($filedsid)) {
-        drush_log(t("Found no DSID for id @objectid", array("@objectid" => $objectid)), 'error');
-        $haserror = TRUE;
-        break;
-      }
-      if (array_key_exists($objectid, $ingest_objects) && array_key_exists($filedsid, $ingest_objects[$objectid])) {
-        drush_log(t("Object with id @objectid already has a DSID of type @dsid", array("@objectid" => $objectid, "@dsid" => $filedsid)), 'warning');
-      }
-
-      if (array_key_exists($objectid, $ingest_objects) !== TRUE) {
-        $ingest_objects[$objectid] = array();
-      }
-      $ingest_objects[$objectid][$filedsid] = array();
-
-      $ingest_objects[$objectid][$filedsid]["object"] = islandora_object_load($objects[0]);
-      $ingest_objects[$objectid][$filedsid]["filepath"] = $filepath;
-    }
-
-    if (!$haserror) {
-      // TODO: looks alot like ubl_batch_ingest_datastreams_confirm_form_submit.
-      // Maybe put this in one function.
-      foreach ($ingest_objects as $objectid => $dsids) {
-        foreach ($dsids as $dsid => $info) {
-          $object = $info['object'];
-          if (isset($info['filepath']) && $info['filepath'] !== NULL && strlen($info['filepath']) > 0) {
-            drush_log(t('Ingesting datastream @ds into object @objectid', array('@ds' => $dsid, '@objectid' => $objectid)), 'notice');
-            $filepath = $info['filepath'];
-            $ingest = !isset($object[$dsid]);
-            if ($ingest) {
-              $mimetype = file_get_mimetype($filepath);
-              $ds = $object->constructDatastream($dsid, 'M');
-              $ds->label = basename($filepath);
-              $ds->mimeType = $mimetype;
-            }
-            else {
-              $ds = $object[$dsid];
-            }
-            $ds->setContentFromFile($filepath);
-            if ($ingest) {
-              $object->ingestDatastream($ds);
-            }
-          }
-          else {
-            // Generate a new datastream.
-            $success = FALSE;
-            drush_log(t('Generating datastream @ds for object @objectid', array('@ds' => $dsid, '@objectid' => $objectid)), 'notice');
-            if ($dsid === 'JPG') {
-              if (module_load_include('inc', 'islandora_large_image', 'includes/derivatives') !== FALSE) {
-                islandora_large_image_create_jpg_derivative($object, FALSE);
-                $success = TRUE;
-              }
-            }
-            elseif ($dsid === 'JP2') {
-              if (module_load_include('inc', 'islandora_large_image', 'includes/derivatives') !== FALSE) {
-                islandora_large_image_create_jp2_derivative($object, FALSE);
-                $success = TRUE;
-              }
-            }
-            elseif ($dsid === 'TN') {
-              if (module_load_include('inc', 'islandora_large_image', 'includes/derivatives') !== FALSE) {
-                islandora_large_image_create_tn_derivative($object, FALSE);
-                $success = TRUE;
-              }
-            }
-            elseif ($dsid === 'PDF') {
-              if (module_load_include('inc', 'islandora_solution_pack_pdf', 'includes/derivatives') !== FALSE) {
-                islandora_pdf_add_pdfa_derivative($object, FALSE);
-                $success = TRUE;
-              }
-            }
-            elseif ($dsid === 'OCR') {
-              if (module_load_include('inc', 'islandora_ocr', 'includes/derivatives') !== FALSE) {
-                islandora_ocr_derive_ocr($object, FALSE);
-                $success = TRUE;
-              }
-            }
-            elseif ($dsid === 'HOCR') {
-              if (module_load_include('inc', 'islandora_ocr', 'includes/derivatives') !== FALSE) {
-                islandora_ocr_derive_hocr($object, FALSE);
-                $success = TRUE;
-              }
-            }
-            elseif ($dsid === 'HDL') {
-              if (module_load_include('inc', 'islandora_handle', 'includes/derivatives') !== FALSE) {
-                if (function_exists('islandora_handle_append_handle_from_configuration')) {
-                  $result = islandora_handle_append_handle_from_configuration($object, FALSE, array('destination_dsid' => 'MODS'));
-                }
-                else if (function_exists('islandora_handle_append_handles_from_configuration')) {
-                  $result = islandora_handle_append_handles_from_configuration($object, FALSE, array('destination_dsid' => 'MODS'));
-                }
-                if (isset($result) && $result['success'] === TRUE) {
-                  islandora_handle_add_to_dc_datastream($object);
-                  $success = TRUE;
-                }
-              }
-            }
-            elseif ($dsid === 'DIMENSIONS') {
-              if ($object['JP2']) {
-                if (module_load_include('inc', 'islandora_paged_content', 'includes/utilities') !== FALSE) {
-                  islandora_paged_content_add_dimensions_relationships($object);
-                  $success = TRUE;
-                }
-              }
-            }
-            elseif ($dsid === 'PROXY_MP3') {
-              if (module_load_include('inc', 'islandora_audio', 'includes/derivatives') !== FALSE) {
-                islandora_audio_create_mp3($object, FALSE);
-                $success = TRUE;
-              }
-            }
-            elseif ($dsid === 'TECHMD') {
-              if (module_load_include('inc', 'islandora_fits', 'includes/derivatives') !== FALSE) {
-                islandora_fits_create_techmd($object, FALSE, array('source_dsid' => 'OBJ'));
-                $success = TRUE;
-              }
-            }
-            if (!$success) {
-              drush_log(t('Cannot generate @ds for object @objectid', array('@ds' => $dsid, '@objectid' => $objectid)), 'warning');
-            }
-          }
-        }
-      }
-    }
-    fclose($fh);
+  if ($workinfo) {
+    islandora_batch_modify_do_work($workinfo, 'drush_log', 'notice');
   }
   else {
-    drush_log(t('Cannot open file @file', array('@file' => $csvfile)), 'error');
+    drush_log(t('Nothing to do!'), 'notice');
   }
 }

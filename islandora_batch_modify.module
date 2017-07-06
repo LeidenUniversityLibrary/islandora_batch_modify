@@ -6,7 +6,7 @@
  */
 
 // Permissions.
-define('ISLANDORA_BATCH_MODIFY_FROM_ZIP', 'Modify existing items in batch from zip file');
+define('ISLANDORA_BATCH_MODIFY_FROM_ZIP', 'Batch Modify');
 
 /**
  * Implements hook_menu().
@@ -14,7 +14,7 @@ define('ISLANDORA_BATCH_MODIFY_FROM_ZIP', 'Modify existing items in batch from z
 function islandora_batch_modify_menu() {
   return array(
     'islandora_batch_modify' => array(
-      'title' => 'Modify existing items from a zip file',
+      'title' => 'Batch Modify',
       'type' => MENU_NORMAL_ITEM,
       'page callback' => 'drupal_get_form',
       'page arguments' => array('islandora_batch_modify_import_form'),
@@ -30,8 +30,8 @@ function islandora_batch_modify_menu() {
 function islandora_batch_modify_permission() {
   return array(
     ISLANDORA_BATCH_MODIFY_FROM_ZIP => array(
-      'title' => t('Modify existing items from zip file'),
-      'description' => t('Modify existing items in batch from zip file'),
+      'title' => t('Batch Modify'),
+      'description' => t('Modify items in batch from a CSV or ZIP file'),
     ),
   );
 }
@@ -47,7 +47,7 @@ function islandora_batch_modify_form_system_modules_alter(&$form, &$form_state, 
     '#options' => array(
       'attributes' => array(
         'class' => array('module-link', 'module-link-configure'),
-        'title' => t('Setup a batch modify of existing items'),
+        'title' => t('Setup a batch modify of items'),
       ),
     ),
   );
