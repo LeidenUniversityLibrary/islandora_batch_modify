@@ -126,6 +126,7 @@ function islandora_batch_modify_do_work($workinfo, $logfunction, $loglevel = 'er
 }
 
 function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinfo, $logfunction, $loglevel = 'error') {
+  $objectid = $object->id;
   if (isset($modifyinfo['value'])) {
     $value = $modifyinfo['value'];
     if ($modifywhat === 'add_to_collection') {
