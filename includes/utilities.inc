@@ -323,21 +323,57 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
     if ($loglevel === 'notice') {
       $logfunction(t('Generating datastream @ds for object @objectid', array('@ds' => $dsid, '@objectid' => $objectid)), 'notice');
     }
-    module_load_include('inc', 'islandora', 'includes/derivatives');
-    $logging = islandora_do_derivatives($object, array( 'destination_dsid' => $dsid));
-    if ($loglevel === 'notice' || $loglevel === 'error') {
-      if (count($logging) === 0) {
-        // There is no derivative generation function for this dsid.
-        $logfunction(t('Generation of @ds of object @objectid is not possible, because no derivative function is defined for "@ds" for objects with content models "@cmodel".',
-          array('@ds' => $dsid, '@objectid' => $objectid, '@cmodel' => implode(',', $object->models))), 'error');
+    if ($dsid === 'HDL') {
+      if (module_load_include('inc', 'islandora_handle') !== FALSE) {
+        if (function_exists('islandora_handle_append_handle_from_configuration')) {
+          $result = islandora_handle_append_handle_from_configuration($object, FALSE, array('destination_dsid' => 'MODS'));
+        }
+        else if (function_exists('islandora_handles_append_handles_from_configuration')) {
+          $result = islandora_handle_append_handles_from_configuration($object, FALSE, array('destination_dsid' => 'MODS'));
+        }
+        if (isset($result) && $result['success'] === TRUE) {
+          islandora_handle_add_to_dc_datastream($object);
+          $logfunction(t('Handle created succesfully'), 'notice');
+        }
+        else {
+          display_log($result, $logfunction, 'error');
+        }
       }
       else {
-        foreach ($logging as $log) {
-          if (isset($log['success']) && $log['success']) {
-            display_log($log, $logfunction, 'notice');
-          }
-          else {
-            display_log($log, $logfunction, 'error');
+        $logfunction(t('Islandora_handle module is not enabled'), 'error');
+      }
+    }
+    elseif ($dsid === 'DIMENSIONS') {
+      if ($object['JP2']) {
+        if (module_load_include('inc', 'islandora_paged_content') !== FALSE) {
+          islandora_paged_content_add_dimensions_relationships($object);
+          $logfunction(t('Dimensions created succesfully'), 'notice');
+        }
+        else {
+          $logfunction(t('Islandora_paged_content module is not enabled'), 'error');
+        }
+      }
+      else {
+        $logfunction(t('Object @objectid does not have a JP2 datastream, so dimensions cannot be generated'), 'error');
+      }
+    }
+    else {
+      module_load_include('inc', 'islandora', 'includes/derivatives');
+      $logging = islandora_do_derivatives($object, array( 'destination_dsid' => $dsid));
+      if ($loglevel === 'notice' || $loglevel === 'error') {
+        if (count($logging) === 0) {
+          // There is no derivative generation function for this dsid.
+          $logfunction(t('Generation of @ds of object @objectid is not possible, because no derivative function is defined for "@ds" for objects with content models "@cmodel".',
+            array('@ds' => $dsid, '@objectid' => $objectid, '@cmodel' => implode(',', $object->models))), 'error');
+        }
+        else {
+          foreach ($logging as $log) {
+            if (isset($log['success']) && $log['success']) {
+              display_log($log, $logfunction, 'notice');
+            }
+            else {
+              display_log($log, $logfunction, 'error');
+            }
           }
         }
       }
