@@ -467,11 +467,12 @@ function find_fedora_object_ids($identifier, $exactmatch = FALSE, $query_field =
     return $alreadyfound[$search];
   }
 
-  $qp->buildAndExecuteQuery($search, NULL, FALSE);
+  $limit = 100;
+  $qp->buildAndExecuteQuery($search, array('limit' => $limit), FALSE);
 
   $r = $qp->islandoraSolrResult;
 
-  $numfound = $r['response']['numFound'];
+  $numfound = min($r['response']['numFound'], $limit);
 
   $objectids = array();
   for ($i = 0; $i < $numfound; $i++) {
