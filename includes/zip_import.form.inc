@@ -255,10 +255,15 @@ function islandora_batch_modify_import_zip_or_csv_form_submit(array $form, array
                   $model2generate[$strmodel]['_gdsids'] = $gdsids;
                 }
                 $cangenerate = FALSE;
-                foreach ($gdsids as $gdsid) {
-                  if ($gdsid['destination_dsid'] === $dsid) {
-                    $cangenerate = TRUE;
-                  } 
+                if ($dsid === 'HDL' || $dsid === 'DIMENSIONS') {
+                  $cangenerate = TRUE;
+                }
+                else {
+                  foreach ($gdsids as $gdsid) {
+                    if ($gdsid['destination_dsid'] === $dsid) {
+                      $cangenerate = TRUE;
+                    } 
+                  }
                 }
                 $model2generate[$strmodel][$dsid] = $cangenerate;
               }

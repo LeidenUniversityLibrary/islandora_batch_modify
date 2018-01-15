@@ -343,11 +343,11 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
       $logfunction(t('Generating datastream @ds for object @objectid', array('@ds' => $dsid, '@objectid' => $objectid)), 'notice');
     }
     if ($dsid === 'HDL') {
-      if (module_load_include('inc', 'islandora_handle') !== FALSE) {
+      if (module_load_include('inc', 'islandora_handle', 'includes/derivatives') !== FALSE) {
         if (function_exists('islandora_handle_append_handle_from_configuration')) {
           $result = islandora_handle_append_handle_from_configuration($object, FALSE, array('destination_dsid' => 'MODS'));
         }
-        else if (function_exists('islandora_handles_append_handles_from_configuration')) {
+        else if (function_exists('islandora_handle_append_handles_from_configuration')) {
           $result = islandora_handle_append_handles_from_configuration($object, FALSE, array('destination_dsid' => 'MODS'));
         }
         if (isset($result) && $result['success'] === TRUE) {
@@ -364,7 +364,7 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
     }
     elseif ($dsid === 'DIMENSIONS') {
       if ($object['JP2']) {
-        if (module_load_include('inc', 'islandora_paged_content') !== FALSE) {
+        if (module_load_include('inc', 'islandora_paged_content', 'includes/utilities') !== FALSE) {
           islandora_paged_content_add_dimensions_relationships($object);
           $logfunction(t('Dimensions created succesfully'), 'notice');
         }
