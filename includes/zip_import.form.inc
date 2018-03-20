@@ -265,6 +265,11 @@ function islandora_batch_modify_import_zip_or_csv_form_submit(array $form, array
                     } 
                   }
                 }
+                if (!$cangenerate && $dsid === 'PDF') {
+                  if (module_load_include('inc', 'islandora_paged_content', 'includes/manage_pages')) {
+                    $cangenerate = TRUE;
+                  }
+                }
                 $model2generate[$strmodel][$dsid] = $cangenerate;
               }
               

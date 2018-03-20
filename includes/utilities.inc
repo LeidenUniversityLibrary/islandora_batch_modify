@@ -146,7 +146,7 @@ function islandora_batch_modify_do_work($workinfo, $logfunction, $loglevel = 'er
 
 function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinfo, $logfunction, $loglevel = 'error') {
   $objectid = $object->id;
-  if (isset($modifyinfo['value'])) {
+  if (isset($modifyinfo['value']) && strpos($modifyinfo['value'], 'generate') !== 0) {
     $value = $modifyinfo['value'];
     if ($modifywhat === 'add_to_collection') {
       $isadded = FALSE;
@@ -326,6 +326,20 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
   }
   else {
     // Generate a new datastream.
+    $options = array();
+    if (isset($modifyinfo['value'])) {
+      $jsonoptions = preg_replace('/^(?:re)?generate[\s:=]*|\s+$/', '', $modifyinfo['value']);
+      if (strlen($jsonoptions) > 0) {
+        $options = json_decode($jsonoptions, TRUE);
+        if ($options === NULL) {
+          if ($loglevel === 'notice' || $loglevel === 'error') {
+            $logfunction(t('Skipping generation of @ds of object @objectid, because the generation options ("!options") are not valid JSON.',
+              array('@ds' => $modifywhat, '@objectid' => $objectid, '!options' => $jsonoptions)), 'error');
+          }
+          return;
+        }
+      }
+    }
     if (!preg_match("/^[A-Z0-9_-]+$/", $modifywhat)) {
       if ($loglevel === 'notice' || $loglevel === 'error') {
         $logfunction(t('Skipping generation of @ds of object @objectid, because @ds is not a valid datastream.', array('@ds' => $modifywhat, '@objectid' => $objectid)), 'error');
@@ -344,11 +358,12 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
     }
     if ($dsid === 'HDL') {
       if (module_load_include('inc', 'islandora_handle', 'includes/derivatives') !== FALSE) {
+        $options += array('destination_dsid' => 'MODS');
         if (function_exists('islandora_handle_append_handle_from_configuration')) {
-          $result = islandora_handle_append_handle_from_configuration($object, FALSE, array('destination_dsid' => 'MODS'));
+          $result = islandora_handle_append_handle_from_configuration($object, FALSE, $options);
         }
         else if (function_exists('islandora_handle_append_handles_from_configuration')) {
-          $result = islandora_handle_append_handles_from_configuration($object, FALSE, array('destination_dsid' => 'MODS'));
+          $result = islandora_handle_append_handles_from_configuration($object, FALSE, $options);
         }
         if (isset($result) && $result['success'] === TRUE) {
           islandora_handle_add_to_dc_datastream($object);
@@ -376,9 +391,36 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
         $logfunction(t('Object @objectid does not have a JP2 datastream, so dimensions cannot be generated'), 'error');
       }
     }
+    elseif ($dsid === 'PDF' && in_array('islandora:bookCModel', $object->models)) {
+      if (module_load_include('inc', 'islandora_paged_content', 'includes/utilities') && module_load_include('inc', 'islandora_paged_content', 'includes/batch')) {
+        $pages = array_keys(islandora_paged_content_get_pages($object));
+        $batch = islandora_paged_content_create_pdf_batch($object, $pages, $options);
+        batch_set($batch);
+        if ($logfunction === 'drush_log') {
+          drush_backend_batch_process();
+        }
+      }
+      else {
+        $logfunction(t('Islandora_paged_content module is not enabled'), 'error');
+      }
+    }
+    elseif ($dsid === 'PDF' && in_array('islandora:pageCModel', $object->models)) {
+      if (module_load_include('inc', 'islandora_paged_content', 'includes/utilities')) {
+        if (islandora_paged_content_page_derive_pdf_datastream($object, $options)) {
+          $logfunction(t('PDF created succesfully'), 'notice');
+        }
+        else {
+          $logfunction(t('Failed to created PDF of page.'), 'error');
+        }
+      }
+      else {
+        $logfunction(t('Islandora_paged_content module is not enabled'), 'error');
+      }
+    }
     else {
+      $options += array( 'destination_dsid' => $dsid);
       module_load_include('inc', 'islandora', 'includes/derivatives');
-      $logging = islandora_do_derivatives($object, array( 'destination_dsid' => $dsid));
+      $logging = islandora_do_derivatives($object, $options);
       if ($loglevel === 'notice' || $loglevel === 'error') {
         if (count($logging) === 0) {
           // There is no derivative generation function for this dsid.
