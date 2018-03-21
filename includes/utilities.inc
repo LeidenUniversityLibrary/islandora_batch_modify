@@ -388,16 +388,55 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
         }
       }
       else {
-        $logfunction(t('Object @objectid does not have a JP2 datastream, so dimensions cannot be generated'), 'error');
+        $logfunction(t('Object @objectid does not have a JP2 datastream, so dimensions cannot be generated', array('@objectid' => $object->id)), 'error');
       }
     }
     elseif ($dsid === 'PDF' && in_array('islandora:bookCModel', $object->models)) {
       if (module_load_include('inc', 'islandora_paged_content', 'includes/utilities') && module_load_include('inc', 'islandora_paged_content', 'includes/batch')) {
-        $pages = array_keys(islandora_paged_content_get_pages($object));
-        $batch = islandora_paged_content_create_pdf_batch($object, $pages, $options);
-        batch_set($batch);
-        if ($logfunction === 'drush_log') {
-          drush_backend_batch_process();
+        $pageids = array_keys(islandora_paged_content_get_pages($object));
+        if (strpos($modifyinfo['value'], 'regenerate') === 0) {
+          $batch = islandora_paged_content_create_pdf_batch($object, $pageids, $options);
+          batch_set($batch);
+          if ($logfunction === 'drush_log') {
+            drush_backend_batch_process();
+          }
+        }
+        else {
+          // Create and collect PDF's for pages.
+          $pdf_files = array();
+          foreach ($pageids as $pageid) {
+            $page = islandora_object_load($pageid);
+            if (isset($page[$dsid])) {
+              $pdf_file = drupal_realpath("temporary://{$page->id}_PDF.pdf");
+              if ($page[$dsid]->getContent($pdf_file)) {
+                $pdf_files[] = $pdf_file;
+              }
+              else {
+                $logfunction(t('Failed to get existing PDF for page @page', array('@page' => $pageid)), 'error');
+              }
+            }
+            else {
+              $pdf_file = islandora_paged_content_page_derive_pdf($page, $options);
+              if ($pdf_file) {
+                islandora_paged_content_update_datastream($page, $pdf_file, 'PDF');
+                $pdf_files[] = $pdf_file;
+              }
+              else {
+                $logfunction(t('Failed to generate PDF for page @page', array('@page' => $pageid)), 'error');
+              }
+            }
+          }
+
+          // Combine the page PDF's into one big PDF
+          $pdf_file = drupal_realpath("temporary://{$object->id}_PDF.pdf");
+          islandora_paged_content_pdf_combine($pdf_files, $pdf_file);
+          islandora_paged_content_update_datastream($object, $pdf_file, 'PDF');
+
+          // Clean up temporary files.
+          file_unmanaged_delete($pdf_file);
+          foreach ($pdf_files as $pdf_file) {
+            file_unmanaged_delete($pdf_file);
+          }
         }
       }
       else {
