@@ -394,7 +394,7 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
     elseif ($dsid === 'PDF' && in_array('islandora:bookCModel', $object->models)) {
       if (module_load_include('inc', 'islandora_paged_content', 'includes/utilities') && module_load_include('inc', 'islandora_paged_content', 'includes/batch')) {
         $pageids = array_keys(islandora_paged_content_get_pages($object));
-        if (strpos($modifyinfo['value'], 'regenerate') === 0) {
+        if (isset($modifyinfo['value']) && strpos($modifyinfo['value'], 'regenerate') === 0) {
           $batch = islandora_paged_content_create_pdf_batch($object, $pageids, $options);
           batch_set($batch);
           if ($logfunction === 'drush_log') {
