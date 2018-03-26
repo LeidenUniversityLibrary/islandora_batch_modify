@@ -129,7 +129,7 @@ function islandora_batch_modify_parse_csv_file($csvfile, $logfunction) {
   return $result;
 }
 
-function islandora_batch_modify_do_work($workinfo, $logfunction, $loglevel = 'error') {
+function islandora_batch_modify_do_work($workinfo, $logfunction, $loglevel = 'error', $skipmodifiedafter = NULL) {
   foreach ($workinfo as $objectid => $modifywhats) {
     $object = islandora_object_load($objectid);
     if (!$object) {
@@ -139,12 +139,12 @@ function islandora_batch_modify_do_work($workinfo, $logfunction, $loglevel = 'er
       continue;
     }
     foreach ($modifywhats as $modifywhat => $modifyinfo) {
-      islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinfo, $logfunction, $loglevel = 'error');
+      islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinfo, $logfunction, $loglevel, $skipmodifiedafter);
     }
   }
 }
 
-function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinfo, $logfunction, $loglevel = 'error') {
+function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinfo, $logfunction, $loglevel = 'error', $skipmodifiedafter = NULL) {
   $objectid = $object->id;
   if (isset($modifyinfo['value']) && strpos($modifyinfo['value'], 'generate') !== 0) {
     $value = $modifyinfo['value'];
@@ -202,6 +202,16 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
       $parts = explode(':', $modifywhat);
       if (count($parts) === 2) {
         if ($parts[1] === 'label') {
+          if (isset($skipmodifiedafter)) {
+            $moddate = $object->lastModifiedDate->format("Y-m-d\TH:i:s");
+            if (strcmp($skipmodifiedafter, $moddate) < 0) {
+              if ($loglevel === 'notice') {
+                $logfunction(t('Skipping update of label of object @objid because modification date of object (@moddate) is after @skipmoddate',
+                  array('@objid' => $object->id, '@moddate' => $moddate, '@skipmoddate' => $skipmodifiedafter)), 'notice');
+              }
+              return;
+            }
+          }
           try {
             $isgoodproperty = TRUE;
             $object->label = $value;
@@ -242,6 +252,16 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
         $what = $parts[2];
         if (isset($object[$dsid])) {
           if ($what === 'label') {
+            if (isset($skipmodifiedafter)) {
+              $moddate = $object[$dsid]->createdDate->format("Y-m-d\TH:i:s");
+              if (strcmp($skipmodifiedafter, $moddate) < 0) {
+                if ($loglevel === 'notice') {
+                  $logfunction(t('Skipping update of label of datastream @dsid of object @objid because modification date of datastream (@moddate) is after @skipmoddate',
+                    array('@dsid' => $dsid, '@objid' => $object->id, '@moddate' => $moddate, '@skipmoddate' => $skipmodifiedafter)), 'notice');
+                }
+                return;
+              }
+            }
             try {
               $isgoodproperty = TRUE;
               $object[$dsid]->label = $value;
@@ -304,6 +324,16 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
         return;
       }
       $ingest = !isset($object[$dsid]);
+      if (isset($skipmodifiedafter) && !$ingest) {
+        $moddate = $object[$dsid]->createdDate->format("Y-m-d\TH:i:s");
+        if (strcmp($skipmodifiedafter, $moddate) < 0) {
+          if ($loglevel === 'notice') {
+            $logfunction(t('Skipping update of datastream @dsid of object @objid because modification date of datastream (@moddate) is after @skipmoddate',
+              array('@dsid' => $dsid, '@objid' => $object->id, '@moddate' => $moddate, '@skipmoddate' => $skipmodifiedafter)), 'notice');
+          }
+          return;
+        }
+      }
       if ($ingest) {
         $mimetype = file_get_mimetype($filepath);
         $ds = $object->constructDatastream($dsid, 'M');

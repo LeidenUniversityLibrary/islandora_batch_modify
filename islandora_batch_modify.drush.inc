@@ -31,6 +31,7 @@ function islandora_batch_modify_drush_command() {
     'description' => 'Ingests or generates datastreams for objects found in a CSV file.',
     'options' => array(
       'csvfile' => 'An absolute path to an existing CSV file, containing lines with 3 values: an object id, a datastream id or property type, and optionally a absolute path to a datastream file or property value.',
+      'skipmodifiedafter' => 'Optional, prevents modification of a datastream, or the label of an object or a datastream if the modification date of the datastream or object is after this date.',
     ),
     'aliases' => array('ibm'),
     'examples' => array(
@@ -54,6 +55,13 @@ function drush_islandora_batch_modify_validate() {
     return drush_set_error("csvfile should be an absolute path to an existing CSV file, but does not exist.");
   }
 
+  $skipmodifiedafter = drush_get_option('skipmodifiedafter');
+  if (isset($skipmodifiedafter)) {
+    if (!preg_match('/^[12][0-9]{3}-[01][0-9]-[0-3][0-9](?:T[0-2][0-9]:[0-5][0-9]:[0-5][0-9]Z)?$/', $skipmodifiedafter)) {
+      return drush_set_error("skipmodifiedafter should be a date, e.g. 2014-01-20 or 2014-04-28T21:15:00Z.");
+    }
+  }
+
   return TRUE;
 }
 
@@ -63,11 +71,12 @@ function drush_islandora_batch_modify_validate() {
 function drush_islandora_batch_modify() {
   module_load_include('inc', 'islandora_batch_modify', 'includes/utilities');
   $csvfile = drush_get_option('csvfile');
+  $skipmodifiedafter = drush_get_option('skipmodifiedafter', NULL);
 
   $workinfo = islandora_batch_modify_parse_csv_file($csvfile, 'drush_log'); 
 
   if ($workinfo) {
-    islandora_batch_modify_do_work($workinfo, 'drush_log', 'notice');
+    islandora_batch_modify_do_work($workinfo, 'drush_log', 'notice', $skipmodifiedafter);
   }
   else {
     drush_log(t('Nothing to do!'), 'notice');
