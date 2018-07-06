@@ -189,17 +189,33 @@ function islandora_batch_modify_import_zip_or_csv_form_submit(array $form, array
         $filepath = NULL;
         if ($enable && isset($info['value']) && strlen($info['value']) > 0) {
           if ($info['is_about'] === 'datastream') {
-            $filename = $info['value'];
-            if (array_key_exists($filename, $files)) {
-              $filepath = $files[$filename];
-            }
-            if ($filepath && file_exists($filepath)) {
-              $ingest_objects[$objectid][$dsid]["filename"] = $filename;
-              $ingest_objects[$objectid][$dsid]["filepath"] = $filepath;
-              $ingest_objects[$objectid][$dsid]["action"] = t('Add @dsid', array('@dsid' => $dsid));
+            if ((strpos($info['value'], 'external:') === 0) || (strpos($info['value'], 'redirect:') === 0)) {
+              $url = substr($info['value'], 10);
+              if (filter_var($url, FILTER_VALIDATE_URL) === FALSE) {
+                $ingest_objects[$objectid][$dsid]["action"] = t('Invalid URL');
+                $enable = FALSE;
+              }
+              else {
+                $ingest_objects[$objectid][$dsid]["action"] = t('Add @type @dsid', array('@dsid' => $dsid, '@type' => substr($info['value'], 0, 8)));
+              }
             }
             else {
-              $ingest_objects[$objectid][$dsid]["action"] = t('None: file not in ZIP');
+              $filename = $info['value'];
+              if (array_key_exists($filename, $files)) {
+                $filepath = $files[$filename];
+              }
+              if ($filepath && file_exists($filepath)) {
+                $ingest_objects[$objectid][$dsid]["filename"] = $filename;
+                $ingest_objects[$objectid][$dsid]["filepath"] = $filepath;
+                $ingest_objects[$objectid][$dsid]["action"] = t('Add @dsid', array('@dsid' => $dsid));
+              }
+              else {
+                $ingest_objects[$objectid][$dsid]["action"] = t('None: file not in ZIP');
+                $enable = FALSE;
+              }
+            }
+            if (in_array($dsid, array('RELS-EXT', 'RELS-INT', 'POLICY'))) {
+              drupal_set_message(t('This will change @what datastreams, which is extremely dangerous. Check before continuing!', array('@what' => $dsid)), 'warning');
               $enable = FALSE;
             }
           }
@@ -349,7 +365,11 @@ function islandora_batch_modify_confirm_form(array $form, array &$form_state) {
             $options[$key]['objectid'] = check_plain($objectid);
           }
           if (isset($modifyinfo['value'])) {
-            $options[$key]['value'] = $modifyinfo["value"];
+            $value = $modifyinfo["value"];
+            if (strlen($value) > 43) {
+              $value = substr($value, 0, 10) . '...' . substr($value, -30);
+            }
+            $options[$key]['value'] = $value;
           }
           else {
             $options[$key]['value'] = "-";

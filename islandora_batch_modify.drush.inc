@@ -76,6 +76,18 @@ function drush_islandora_batch_modify() {
   $workinfo = islandora_batch_modify_parse_csv_file($csvfile, 'drush_log'); 
 
   if ($workinfo) {
+    $askbeforedoing = FALSE;
+    foreach ($workinfo as $objid => $info) {
+      if (isset($info['POLICY']) || isset($info['RELS-EXT']) || isset($info['RELS-INT'])) {
+        $askbeforedoing = TRUE;
+      }
+    }
+    if ($askbeforedoing) {
+      if (!drush_confirm(t('Warning: Are you sure you want to change POLICY, RELS-EXT or RELS-INT datastreams?'))) {
+        drush_log(t('Cancelled.'), 'notice');
+        return;
+      }
+    }
     islandora_batch_modify_do_work($workinfo, 'drush_log', 'notice', $skipmodifiedafter);
   }
   else {

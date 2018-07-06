@@ -306,22 +306,38 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
     }
     else if (preg_match("/^[A-Z0-9_-]+$/", $modifywhat)) {
       $dsid = $modifywhat;
-      // Allow modification of "normal" datastream ids, but dont allow POLICY, RELS-EXT or RELS-INT.
-      if (in_array($dsid, array('POLICY', 'RELS-EXT', 'RELS-INT'))) {
+      // Allow modification of "normal" datastream ids, but warn for POLICY, RELS-EXT or RELS-INT.
+      if (in_array($dsid, array('POLICY', 'RELS-INT', 'RELS-EXT'))) {
         if ($loglevel === 'notice' || $loglevel === 'error') {
-          $logfunction(t('Modification of datastream @ds of object @objectid is not allowed', array('@ds' => $dsid, '@objectid' => $objectid)), 'error');
+          $logfunction(t('Modification of datastream @ds of object @objectid', array('@ds' => $dsid, '@objectid' => $objectid)), 'warning');
         }
-        return;
       }
-      $filepath = $value;
-      if ($loglevel === 'notice') {
-        $logfunction(t('Ingesting file @file into datastream @ds of object @objectid', array('@file' => $filepath, '@ds' => $dsid, '@objectid' => $objectid)), 'notice');
-      }
-      if (!is_file($filepath)) {
-        if ($loglevel === 'notice' || $loglevel === 'error') {
-          $logfunction(t('Cannot find file @filepath for ingesting into @ds of object @objectid', array('@filepath' => $filepath, '@ds' => $dsid, '@objectid' => $objectid)), 'error');
+      $controlgroup = 'M';
+      if (strpos($value, 'external:') === 0) {
+        $controlgroup = 'E';
+        $url = substr($value, 9);
+        if ($loglevel === 'notice') {
+          $logfunction(t('Setting @ds of object @objectid as external to @url', array('@url' => $url, '@ds' => $dsid, '@objectid' => $objectid)), 'notice');
         }
-        return;
+      }
+      elseif (strpos($value, 'redirect:') === 0) {
+        $controlgroup = 'R';
+        $url = substr($value, 9);
+        if ($loglevel === 'notice') {
+          $logfunction(t('Setting @ds of object @objectid as redirect to @url', array('@url' => $url, '@ds' => $dsid, '@objectid' => $objectid)), 'notice');
+        }
+      }
+      else {
+        $filepath = $value;
+        if ($loglevel === 'notice') {
+          $logfunction(t('Ingesting file @file into datastream @ds of object @objectid', array('@file' => $filepath, '@ds' => $dsid, '@objectid' => $objectid)), 'notice');
+        }
+        if (!is_file($filepath)) {
+          if ($loglevel === 'notice' || $loglevel === 'error') {
+            $logfunction(t('Cannot find file @filepath for ingesting into @ds of object @objectid', array('@filepath' => $filepath, '@ds' => $dsid, '@objectid' => $objectid)), 'error');
+          }
+          return;
+        }
       }
       $ingest = !isset($object[$dsid]);
       if (isset($skipmodifiedafter) && !$ingest) {
@@ -334,16 +350,28 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
           return;
         }
       }
+
       if ($ingest) {
         $mimetype = file_get_mimetype($filepath);
-        $ds = $object->constructDatastream($dsid, 'M');
+        $ds = $object->constructDatastream($dsid, $controlgroup);
         $ds->label = basename($filepath);
         $ds->mimeType = $mimetype;
       }
       else {
         $ds = $object[$dsid];
+        if ($ds->controlGroup !== $controlgroup) {
+          if ($loglevel === 'notice' || $loglevel === 'error') {
+            $logfunction(t('Cannot change controlgroup of @ds of object @objectid to @controlgroup', array('@controlgroup' => $controlgroup, '@ds' => $dsid, '@objectid' => $objectid)), 'error');
+          }
+          return;
+        }
       }
-      $ds->setContentFromFile($filepath);
+      if ($controlgroup === 'M') {
+        $ds->setContentFromFile($filepath);
+      }
+      else {
+        $ds->url = $url;
+      }
       if ($ingest) {
         $object->ingestDatastream($ds);
       }
