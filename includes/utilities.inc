@@ -433,12 +433,14 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
         else if (function_exists('islandora_handle_append_handles_from_configuration')) {
           $result = islandora_handle_append_handles_from_configuration($object, FALSE, $options);
         }
-        if (isset($result) && $result['success'] === TRUE) {
-          islandora_handle_add_to_dc_datastream($object);
-          $logfunction(t('Handle created succesfully'), 'notice');
-        }
-        else {
-          display_log($result, $logfunction, 'error');
+        if (isset($result['success'])) {
+          if ($result['success'] === TRUE) {
+            islandora_handle_add_to_dc_datastream($object);
+            $logfunction(t('Handle created succesfully'), 'notice');
+          }
+          else {
+            display_log($result, $logfunction, 'error');
+          }
         }
       }
       else {
