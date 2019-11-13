@@ -312,7 +312,7 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
           $logfunction(t('Modification of datastream @ds of object @objectid', array('@ds' => $dsid, '@objectid' => $objectid)), 'warning');
         }
       }
-      $controlgroup = 'M';
+      $controlgroup = (in_array($dsid, array('RELS-INT', 'RELS-EXT'))?'X':'M');
       if (strpos($value, 'external:') === 0) {
         $controlgroup = 'E';
         $url = substr($value, 9);
@@ -361,12 +361,22 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
         $ds = $object[$dsid];
         if ($ds->controlGroup !== $controlgroup) {
           if ($loglevel === 'notice' || $loglevel === 'error') {
-            $logfunction(t('Cannot change controlgroup of @ds of object @objectid to @controlgroup', array('@controlgroup' => $controlgroup, '@ds' => $dsid, '@objectid' => $objectid)), 'error');
+            $logfunction(t('Cannot change controlgroup of @ds of object @objectid from @oldcontrolgroup to @controlgroup', array('@controlgroup' => $controlgroup, '@ds' => $dsid, '@objectid' => $objectid, '@oldcontrolgroup' => $ds->controlGroup)), 'error');
           }
           return;
         }
       }
-      if ($controlgroup === 'M') {
+      if ($controlgroup === 'X') {
+        $content = file_get_contents($filepath);
+        if ($content === FALSE) {
+          if ($loglevel === 'notice' || $loglevel === 'error') {
+            $logfunction(t('Cannot read file @filename', array('@filename' => $filepath)), 'error');
+          }
+          return;
+        }
+        $ds->content = $content;
+      }
+      elseif ($controlgroup === 'M') {
         $ds->setContentFromFile($filepath);
       }
       else {
@@ -423,12 +433,14 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
         else if (function_exists('islandora_handle_append_handles_from_configuration')) {
           $result = islandora_handle_append_handles_from_configuration($object, FALSE, $options);
         }
-        if (isset($result) && $result['success'] === TRUE) {
-          islandora_handle_add_to_dc_datastream($object);
-          $logfunction(t('Handle created succesfully'), 'notice');
-        }
-        else {
-          display_log($result, $logfunction, 'error');
+        if (isset($result['success'])) {
+          if ($result['success'] === TRUE) {
+            islandora_handle_add_to_dc_datastream($object);
+            $logfunction(t('Handle created succesfully'), 'notice');
+          }
+          else {
+            display_log($result, $logfunction, 'error');
+          }
         }
       }
       else {
