@@ -8,8 +8,8 @@
  *
  *  This file is part of islandora_batch_modify.
  *
- *  islandora_batch_modify is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
+ *  islandora_batch_modify is free software: you can redistribute it and/or
+ *  modify it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
  *
@@ -20,9 +20,11 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
  */
 
+/**
+ * Parse a CSV file.
+ */
 function islandora_batch_modify_parse_csv_file($csvfile, $logfunction) {
   ini_set("auto_detect_line_endings", "1");
   $delimit = "\t";
@@ -78,19 +80,13 @@ function islandora_batch_modify_parse_csv_file($csvfile, $logfunction) {
 
       if (count($objects) == 0) {
         $logfunction(t("Found no object for id @objectid", array("@objectid" => $objectid)), 'error');
-        //$haserror = TRUE;
-        //break;
       }
       if (count($objects) > 1) {
         $logfunction(t("Found multiple objects for id @objectid", array("@objectid" => $objectid)), 'error');
-        //$haserror = TRUE;
-        //break;
       }
 
       if (empty($modifywhat)) {
         $logfunction(t("Found no DSID or property to modify for id @objectid", array("@objectid" => $objectid)), 'error');
-        //$haserror = TRUE;
-        //break;
       }
       if (isset($result[$objectid][$modifywhat])) {
         $logfunction(t("Multiple modifcations on same DSID or property '@modifywhat' for id @objectid, only last one will be done.", array("@objectid" => $objectid, "@modifywhat" => $modifywhat)), 'warning');
@@ -104,13 +100,13 @@ function islandora_batch_modify_parse_csv_file($csvfile, $logfunction) {
       if ($modifywhat === 'add_to_collection') {
         $result[$objectid][$modifywhat]["is_about"] = 'collection';
       }
-      else if ($modifywhat === 'remove_from_collection') {
+      elseif ($modifywhat === 'remove_from_collection') {
         $result[$objectid][$modifywhat]["is_about"] = 'collection';
       }
-      else if (substr($modifywhat, 0, strlen('property')) === 'property') {
+      elseif (substr($modifywhat, 0, strlen('property')) === 'property') {
         $result[$objectid][$modifywhat]["is_about"] = 'property';
       }
-      else if (preg_match("/^[A-Z0-9_-]+$/", $modifywhat)) {
+      elseif (preg_match("/^[A-Z0-9_-]+$/", $modifywhat)) {
         $result[$objectid][$modifywhat]["is_about"] = 'datastream';
       }
       else {
@@ -129,6 +125,9 @@ function islandora_batch_modify_parse_csv_file($csvfile, $logfunction) {
   return $result;
 }
 
+/**
+ * Do the batch modify work for multiple objects.
+ */
 function islandora_batch_modify_do_work($workinfo, $logfunction, $loglevel = 'error', $skipmodifiedafter = NULL) {
   foreach ($workinfo as $objectid => $modifywhats) {
     $object = islandora_object_load($objectid);
@@ -144,6 +143,9 @@ function islandora_batch_modify_do_work($workinfo, $logfunction, $loglevel = 'er
   }
 }
 
+/**
+ * Do the batch modify work for one object.
+ */
 function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinfo, $logfunction, $loglevel = 'error', $skipmodifiedafter = NULL) {
   $objectid = $object->id;
   if (isset($modifyinfo['value']) && strpos($modifyinfo['value'], 'generate') !== 0) {
@@ -153,7 +155,7 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
       $collection = islandora_object_load($value);
       if ($collection && in_array('islandora:collectionCModel', $collection->models)) {
         if (module_load_include('inc', 'islandora_basic_collection', 'includes/utilities')) {
-          islandora_basic_collection_add_to_collection($object, $collection); 
+          islandora_basic_collection_add_to_collection($object, $collection);
           $parentids = islandora_basic_collection_get_parent_pids($object);
           if (in_array($value, $parentids)) {
             $isadded = TRUE;
@@ -171,14 +173,14 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
         }
       }
     }
-    else if ($modifywhat === 'remove_from_collection') {
+    elseif ($modifywhat === 'remove_from_collection') {
       $isremoved = FALSE;
       $collection = islandora_object_load($value);
       if ($collection && in_array('islandora:collectionCModel', $collection->models)) {
         if (module_load_include('inc', 'islandora_basic_collection', 'includes/utilities')) {
           $beforeparentids = islandora_basic_collection_get_parent_pids($object);
           if (in_array($value, $beforeparentids)) {
-            islandora_basic_collection_remove_from_collection($object, $collection); 
+            islandora_basic_collection_remove_from_collection($object, $collection);
             $parentids = islandora_basic_collection_get_parent_pids($object);
             if (!in_array($value, $parentids)) {
               $isremoved = TRUE;
@@ -191,13 +193,13 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
           $logfunction(t('Successfully removed object @objectid from collection @value', array('@value' => $value, '@objectid' => $objectid)), 'notice');
         }
       }
-      else if (in_array($value, $beforeparentids)) {
+      elseif (in_array($value, $beforeparentids)) {
         if ($loglevel === 'notice' || $loglevel === 'error') {
           $logfunction(t('Failed to remove object @objectid from collection @value', array('@value' => $value, '@objectid' => $objectid)), 'error');
         }
       }
     }
-    else if (substr($modifywhat, 0, strlen('property')) === 'property') {
+    elseif (substr($modifywhat, 0, strlen('property')) === 'property') {
       $isgoodproperty = FALSE;
       $parts = explode(':', $modifywhat);
       if (count($parts) === 2) {
@@ -207,7 +209,11 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
             if (strcmp($skipmodifiedafter, $moddate) < 0) {
               if ($loglevel === 'notice') {
                 $logfunction(t('Skipping update of label of object @objid because modification date of object (@moddate) is after @skipmoddate',
-                  array('@objid' => $object->id, '@moddate' => $moddate, '@skipmoddate' => $skipmodifiedafter)), 'notice');
+                  array(
+                    '@objid' => $object->id,
+                    '@moddate' => $moddate,
+                    '@skipmoddate' => $skipmodifiedafter,
+                  )), 'notice');
               }
               return;
             }
@@ -222,7 +228,7 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
             }
           }
         }
-        else if ($parts[1] === 'state') {
+        elseif ($parts[1] === 'state') {
           if (in_array($value, array('A', 'I', 'D'))) {
             try {
               $isgoodproperty = TRUE;
@@ -235,7 +241,7 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
             }
           }
         }
-        else if ($parts[1] === 'owner') {
+        elseif ($parts[1] === 'owner') {
           try {
             $isgoodproperty = TRUE;
             $object->owner = $value;
@@ -247,7 +253,7 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
           }
         }
       }
-      else if (count($parts) === 3) {
+      elseif (count($parts) === 3) {
         $dsid = $parts[1];
         $what = $parts[2];
         if (isset($object[$dsid])) {
@@ -257,7 +263,12 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
               if (strcmp($skipmodifiedafter, $moddate) < 0) {
                 if ($loglevel === 'notice') {
                   $logfunction(t('Skipping update of label of datastream @dsid of object @objid because modification date of datastream (@moddate) is after @skipmoddate',
-                    array('@dsid' => $dsid, '@objid' => $object->id, '@moddate' => $moddate, '@skipmoddate' => $skipmodifiedafter)), 'notice');
+                    array(
+                      '@dsid' => $dsid,
+                      '@objid' => $object->id,
+                      '@moddate' => $moddate,
+                      '@skipmoddate' => $skipmodifiedafter,
+                    )), 'notice');
                 }
                 return;
               }
@@ -272,9 +283,9 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
               }
             }
           }
-          else if ($what === 'state') {
+          elseif ($what === 'state') {
             if (in_array($value, array('D'))) {
-              // can only delete a datastream  for now...
+              // Can only delete a datastream  for now...
               try {
                 $isgoodproperty = TRUE;
                 islandora_delete_datastream($object[$dsid]);
@@ -295,7 +306,11 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
       }
       if ($isgoodproperty) {
         if ($loglevel === 'notice') {
-          $logfunction(t('Successfully changed "@what" to "@value" of object @objectid', array('@what' => $modifywhat, '@value' => $value, '@objectid' => $objectid)), 'notice');
+          $logfunction(t('Successfully changed "@what" to "@value" of object @objectid', array(
+            '@what' => $modifywhat,
+            '@value' => $value,
+            '@objectid' => $objectid,
+          )), 'notice');
         }
       }
       else {
@@ -304,15 +319,16 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
         }
       }
     }
-    else if (preg_match("/^[A-Z0-9_-]+$/", $modifywhat)) {
+    elseif (preg_match("/^[A-Z0-9_-]+$/", $modifywhat)) {
       $dsid = $modifywhat;
-      // Allow modification of "normal" datastream ids, but warn for POLICY, RELS-EXT or RELS-INT.
+      // Allow modification of "normal" datastream ids, but warn for POLICY,
+      // RELS-EXT or RELS-INT.
       if (in_array($dsid, array('POLICY', 'RELS-INT', 'RELS-EXT'))) {
         if ($loglevel === 'notice' || $loglevel === 'error') {
           $logfunction(t('Modification of datastream @ds of object @objectid', array('@ds' => $dsid, '@objectid' => $objectid)), 'warning');
         }
       }
-      $controlgroup = (in_array($dsid, array('RELS-INT', 'RELS-EXT'))?'X':'M');
+      $controlgroup = (in_array($dsid, array('RELS-INT', 'RELS-EXT')) ? 'X' : 'M');
       if (strpos($value, 'external:') === 0) {
         $controlgroup = 'E';
         $url = substr($value, 9);
@@ -424,148 +440,95 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
     if ($loglevel === 'notice') {
       $logfunction(t('Generating datastream @ds for object @objectid', array('@ds' => $dsid, '@objectid' => $objectid)), 'notice');
     }
-    if ($dsid === 'HDL') {
-      if (module_load_include('inc', 'islandora_handle', 'includes/derivatives') !== FALSE) {
-        $options += array('destination_dsid' => 'MODS');
-        if (function_exists('islandora_handle_append_handle_from_configuration')) {
-          $result = islandora_handle_append_handle_from_configuration($object, FALSE, $options);
-        }
-        else if (function_exists('islandora_handle_append_handles_from_configuration')) {
-          $result = islandora_handle_append_handles_from_configuration($object, FALSE, $options);
-        }
-        if (isset($result['success'])) {
-          if ($result['success'] === TRUE) {
-            islandora_handle_add_to_dc_datastream($object);
-            $logfunction(t('Handle created succesfully'), 'notice');
-          }
-          else {
-            display_log($result, $logfunction, 'error');
-          }
-        }
-      }
-      else {
-        $logfunction(t('Islandora_handle module is not enabled'), 'error');
-      }
-    }
-    elseif ($dsid === 'DIMENSIONS') {
-      if ($object['JP2']) {
-        if (module_load_include('inc', 'islandora_paged_content', 'includes/utilities') !== FALSE) {
-          islandora_paged_content_add_dimensions_relationships($object);
-          $logfunction(t('Dimensions created succesfully'), 'notice');
-        }
-        else {
-          $logfunction(t('Islandora_paged_content module is not enabled'), 'error');
-        }
-      }
-      else {
-        $logfunction(t('Object @objectid does not have a JP2 datastream, so dimensions cannot be generated', array('@objectid' => $object->id)), 'error');
-      }
-    }
-    elseif ($dsid === 'PDF' && in_array('islandora:bookCModel', $object->models)) {
-      if (module_load_include('inc', 'islandora_paged_content', 'includes/utilities') && module_load_include('inc', 'islandora_paged_content', 'includes/batch')) {
-        $pageids = array_keys(islandora_paged_content_get_pages($object));
-        if (isset($modifyinfo['value']) && strpos($modifyinfo['value'], 'regenerate') === 0) {
-          $batch = islandora_paged_content_create_pdf_batch($object, $pageids, $options);
-          batch_set($batch);
-          if ($logfunction === 'drush_log') {
-            drush_backend_batch_process();
-          }
-        }
-        else {
-          // Create and collect PDF's for pages.
-          $pdf_files = array();
-          foreach ($pageids as $pageid) {
-            $page = islandora_object_load($pageid);
-            if (isset($page[$dsid])) {
-              $pdf_file = drupal_realpath("temporary://{$page->id}_PDF.pdf");
-              if ($page[$dsid]->getContent($pdf_file)) {
-                $pdf_files[] = $pdf_file;
-              }
-              else {
-                $logfunction(t('Failed to get existing PDF for page @page', array('@page' => $pageid)), 'error');
-              }
-            }
-            else {
-              $pdf_file = islandora_paged_content_page_derive_pdf($page, $options);
-              if ($pdf_file) {
-                islandora_paged_content_update_datastream($page, $pdf_file, 'PDF');
-                $pdf_files[] = $pdf_file;
-              }
-              else {
-                $logfunction(t('Failed to generate PDF for page @page', array('@page' => $pageid)), 'error');
-              }
-            }
-          }
+    islandora_batch_modify_generate($object, $dsid, $options, $logfunction, $loglevel);
+  }
+}
 
-          // Combine the page PDF's into one big PDF
-          $pdf_file = drupal_realpath("temporary://{$object->id}_PDF.pdf");
-          islandora_paged_content_pdf_combine($pdf_files, $pdf_file);
-          islandora_paged_content_update_datastream($object, $pdf_file, 'PDF');
+/**
+ * Generate a new derivative for an object.
+ */
+function islandora_batch_modify_generate($object, $dsid, $options = array(), $logfunction = NULL, $loglevel = NULL) {
+  module_load_include('inc', 'islandora', 'includes/derivatives');
+  module_load_include('inc', 'islandora', 'includes/utilities');
 
-          // Clean up temporary files.
-          file_unmanaged_delete($pdf_file);
-          foreach ($pdf_files as $pdf_file) {
-            file_unmanaged_delete($pdf_file);
-          }
-        }
+  if ($logfunction === NULL) {
+    $logfunction = function($t, $l) {
+      // Do nothing.
+    };
+  }
+  $output = array();
+  $hooks = islandora_build_hook_list('generate_extra_derivatives', $object->models);
+  foreach ($hooks as $hook) {
+    $temp = module_invoke_all($hook, $object, $dsid, $options);
+
+    if (!empty($temp)) {
+      $output = array_merge_recursive($output, $temp);
+    }
+  }
+  if (!empty($output)) {
+    foreach ($output as $log) {
+      if (isset($log['success']) && $log['success']) {
+        display_log($log, $logfunction, 'notice');
+        return TRUE;
       }
       else {
-        $logfunction(t('Islandora_paged_content module is not enabled'), 'error');
+        display_log($log, $logfunction, 'error');
       }
     }
-    elseif ($dsid === 'PDF' && in_array('islandora:pageCModel', $object->models)) {
-      if (module_load_include('inc', 'islandora_paged_content', 'includes/utilities')) {
-        if (islandora_paged_content_page_derive_pdf_datastream($object, $options)) {
-          $logfunction(t('PDF created succesfully'), 'notice');
-        }
-        else {
-          $logfunction(t('Failed to created PDF of page.'), 'error');
-        }
-      }
-      else {
-        $logfunction(t('Islandora_paged_content module is not enabled'), 'error');
-      }
+    return FALSE;
+  }
+
+  $options += array('destination_dsid' => $dsid);
+  $logging = islandora_do_derivatives($object, $options);
+  if ($loglevel === 'notice' || $loglevel === 'error') {
+    if (count($logging) === 0) {
+      // There is no derivative generation function for this dsid.
+      $logfunction(t('Generation of @ds of object @objectid is not possible, because no derivative function is defined for "@ds" for objects with content models "@cmodel".',
+        array('@ds' => $dsid, '@objectid' => $objectid, '@cmodel' => implode(',', $object->models))), 'error');
     }
     else {
-      $options += array( 'destination_dsid' => $dsid);
-      module_load_include('inc', 'islandora', 'includes/derivatives');
-      $logging = islandora_do_derivatives($object, $options);
-      if ($loglevel === 'notice' || $loglevel === 'error') {
-        if (count($logging) === 0) {
-          // There is no derivative generation function for this dsid.
-          $logfunction(t('Generation of @ds of object @objectid is not possible, because no derivative function is defined for "@ds" for objects with content models "@cmodel".',
-            array('@ds' => $dsid, '@objectid' => $objectid, '@cmodel' => implode(',', $object->models))), 'error');
+      foreach ($logging as $log) {
+        if (isset($log['success']) && $log['success']) {
+          display_log($log, $logfunction, 'notice');
+          return TRUE;
         }
         else {
-          foreach ($logging as $log) {
-            if (isset($log['success']) && $log['success']) {
-              display_log($log, $logfunction, 'notice');
-            }
-            else {
-              display_log($log, $logfunction, 'error');
-            }
-          }
+          display_log($log, $logfunction, 'error');
         }
       }
     }
   }
+  else {
+    foreach ($logging as $log) {
+      if (isset($log['success']) && $log['success']) {
+        return TRUE;
+      }
+    }
+  }
+  return isset($object[$dsid]);
 }
 
 function display_log($log, $logfunction, $logtype) {
-  if (isset($log['messages'])) {
-    foreach ($log['messages'] as $message) {
-      if (isset($message['message'])) {
-        if (isset($message['message_sub'])) {
-          $logfunction(t($message['message'], $message['message_sub']), $logtype);
-        }
-        else {
-          $logfunction($message['message'], $logtype);
-        }
-      }
-      else {
-        $logfunction(t('Unknown message: @desc', array('@desc' => drupal_json_encode($message))), $logtype);
-      }
+  if (isset($log['message'])) {
+    if (isset($log['message_sub'])) {
+      $logfunction(t($log['message'], $log['message_sub']), $logtype);
     }
+    else {
+      $logfunction($log['message'], $logtype);
+    }
+  }
+  elseif (isset($log['messages'])) {
+    foreach ($log['messages'] as $message) {
+      display_log($message, $logfunction, $logtype);
+    }
+  }
+  elseif (is_array($log)) {
+    foreach ($log as $message) {
+      display_log($message, $logfunction, $logtype);
+    }
+  }
+  elseif (is_string($log)) {
+    $logfunction($log, $logfunction, $logtype);
   }
   else {
     $logfunction(t('Unknown message: @desc', array('@desc' => drupal_json_encode($log))), $logtype);
@@ -673,4 +636,3 @@ function find_fedora_object_ids($identifier, $exactmatch = FALSE, $query_field =
 
   return $objectids;
 }
-
