@@ -148,7 +148,9 @@ function islandora_batch_modify_do_work($workinfo, $logfunction, $loglevel = 'er
  */
 function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinfo, $logfunction, $loglevel = 'error', $skipmodifiedafter = NULL) {
   $objectid = $object->id;
-  if (isset($modifyinfo['value']) && strpos($modifyinfo['value'], 'generate') !== 0) {
+  $isgenerate = (isset($modifyinfo['value']) && strpos($modifyinfo['value'], 'generate') === 0);
+  $isregenerate = (isset($modifyinfo['value']) && strpos($modifyinfo['value'], 'regenerate') === 0);
+  if (isset($modifyinfo['value']) && !($isgenerate || $isregenerate)) {
     $value = $modifyinfo['value'];
     if ($modifywhat === 'add_to_collection') {
       $isadded = FALSE;
@@ -431,7 +433,7 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
       return;
     }
     $dsid = $modifywhat;
-    if (isset($object[$dsid])) {
+    if (isset($object[$dsid]) && !$isregenerate) {
       if ($loglevel === 'notice') {
         $logfunction(t('Skipping generation of @ds of object @objectid, because it already exists.', array('@ds' => $dsid, '@objectid' => $objectid)), 'notice');
       }
