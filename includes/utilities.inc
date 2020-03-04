@@ -484,7 +484,7 @@ function islandora_batch_modify_generate($object, $dsid, $options = array(), $lo
     if (count($logging) === 0) {
       // There is no derivative generation function for this dsid.
       $logfunction(t('Generation of @ds of object @objectid is not possible, because no derivative function is defined for "@ds" for objects with content models "@cmodel".',
-        array('@ds' => $dsid, '@objectid' => $objectid, '@cmodel' => implode(',', $object->models))), 'error');
+        array('@ds' => $dsid, '@objectid' => $object->id, '@cmodel' => implode(',', $object->models))), 'error');
     }
     else {
       foreach ($logging as $log) {
