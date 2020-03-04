@@ -9,8 +9,8 @@
  *
  *  This file is part of islandora_batch_modify.
  *
- *  islandora_batch_modify is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
+ *  islandora_batch_modify is free software: you can redistribute it and/or
+ *  modify it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
  *
@@ -21,7 +21,6 @@
  *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
  */
 
 // Permissions.
@@ -70,4 +69,89 @@ function islandora_batch_modify_form_system_modules_alter(&$form, &$form_state, 
       ),
     ),
   );
+}
+
+/**
+ * Implements hook_generate_extra_derivatives().
+ */
+function islandora_batch_modify_generate_extra_derivatives($object, $what, $options) {
+  if ($what === 'HDL') {
+    if (module_load_include('inc', 'islandora_handle', 'includes/derivatives') !== FALSE) {
+      $options += array('destination_dsid' => 'MODS');
+      if (function_exists('islandora_handle_append_handle_from_configuration')) {
+        $result = islandora_handle_append_handle_from_configuration($object, FALSE, $options);
+      }
+      elseif (function_exists('islandora_handle_append_handles_from_configuration')) {
+        $result = islandora_handle_append_handles_from_configuration($object, FALSE, $options);
+      }
+      if (isset($result['success'])) {
+        if ($result['success'] === TRUE) {
+          islandora_handle_add_to_dc_datastream($object);
+        }
+      }
+      return array($result);
+    }
+  }
+}
+
+/**
+ * Implements hook_generate_extra_derivatives().
+ */
+function islandora_batch_modify_islandora_pagecmodel_generate_extra_derivatives($object, $what, $options) {
+  if ($what === 'DIMENSIONS') {
+    if ($object['JP2']) {
+      if (module_load_include('inc', 'islandora_paged_content', 'includes/utilities') !== FALSE) {
+        islandora_paged_content_add_dimensions_relationships($object);
+        return array(array('success' => TRUE, 'message' => t('Dimensions successfully generated.')));
+      }
+    }
+  }
+  elseif ($what === 'PDF') {
+    if (module_load_include('inc', 'islandora_paged_content', 'includes/utilities')) {
+      if (islandora_paged_content_page_derive_pdf_datastream($object, $options)) {
+        return array(array('success' => TRUE, 'message' => t('PDF successfully generated.')));
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_generate_extra_derivatives().
+ */
+function islandora_batch_modify_islandora_bookcmodel_generate_extra_derivatives($object, $what, $options) {
+  if ($what === 'PDF') {
+    if (module_load_include('inc', 'islandora_paged_content', 'includes/utilities') && module_load_include('inc', 'islandora_paged_content', 'includes/batch')) {
+      $pageids = array_keys(islandora_paged_content_get_pages($object));
+      // Create and collect PDF's for pages.
+      $pdf_files = array();
+      foreach ($pageids as $pageid) {
+        $page = islandora_object_load($pageid);
+        if (isset($page['PDF'])) {
+          $pdf_file = drupal_realpath("temporary://{$page->id}_PDF.pdf");
+          if ($page['PDF']->getContent($pdf_file)) {
+            $pdf_files[] = $pdf_file;
+          }
+        }
+        else {
+          $pdf_file = islandora_paged_content_page_derive_pdf($page, $options);
+          if ($pdf_file) {
+            islandora_paged_content_update_datastream($page, $pdf_file, 'PDF');
+            $pdf_files[] = $pdf_file;
+          }
+        }
+      }
+
+      // Combine the page PDF's into one big PDF.
+      $pdf_file = drupal_realpath("temporary://{$object->id}_PDF.pdf");
+      islandora_paged_content_pdf_combine($pdf_files, $pdf_file);
+      islandora_paged_content_update_datastream($object, $pdf_file, 'PDF');
+
+      // Clean up temporary files.
+      file_unmanaged_delete($pdf_file);
+      foreach ($pdf_files as $pdf_file) {
+        file_unmanaged_delete($pdf_file);
+      }
+      return array(array('success' => TRUE, 'message' => t('PDF successfully generated.')));
+    }
+  }
 }
