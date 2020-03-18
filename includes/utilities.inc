@@ -413,6 +413,9 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
   else {
     // Generate a new datastream.
     $options = array();
+    if ($isregenerate) {
+      $options['force'] = TRUE;
+    }
     if (isset($modifyinfo['value'])) {
       $jsonoptions = preg_replace('/^(?:re)?generate[\s:=]*|\s+$/', '', $modifyinfo['value']);
       if (strlen($jsonoptions) > 0) {
