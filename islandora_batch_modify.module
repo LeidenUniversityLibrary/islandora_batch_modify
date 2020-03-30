@@ -78,11 +78,12 @@ function islandora_batch_modify_generate_extra_derivatives($object, $what, $opti
   if ($what === 'HDL') {
     if (module_load_include('inc', 'islandora_handle', 'includes/derivatives') !== FALSE) {
       $options += array('destination_dsid' => 'MODS');
+      $force = (isset($options['force']) && $options['force']);
       if (function_exists('islandora_handle_append_handle_from_configuration')) {
-        $result = islandora_handle_append_handle_from_configuration($object, FALSE, $options);
+        $result = islandora_handle_append_handle_from_configuration($object, $force, $options);
       }
       elseif (function_exists('islandora_handle_append_handles_from_configuration')) {
-        $result = islandora_handle_append_handles_from_configuration($object, FALSE, $options);
+        $result = islandora_handle_append_handles_from_configuration($object, $force, $options);
       }
       if (isset($result['success'])) {
         if ($result['success'] === TRUE) {
