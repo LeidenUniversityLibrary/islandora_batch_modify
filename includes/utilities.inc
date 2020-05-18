@@ -471,6 +471,9 @@ function islandora_batch_modify_generate($object, $dsid, $options = array(), $lo
     }
   }
   if (!empty($output)) {
+    if (isset($output['success'])) {
+      $output = array($output);
+    }
     foreach ($output as $log) {
       if (isset($log['success']) && $log['success']) {
         display_log($log, $logfunction, 'notice');

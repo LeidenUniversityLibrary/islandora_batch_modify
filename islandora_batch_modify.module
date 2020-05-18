@@ -156,3 +156,14 @@ function islandora_batch_modify_islandora_bookcmodel_generate_extra_derivatives(
     }
   }
 }
+
+/**
+ * Implements hook_generate_extra_derivatives().
+ */
+function islandora_batch_modify_islandora_compoundcmodel_generate_extra_derivatives($object, $what, $options) {
+  if ($what === 'TN') {
+    if (module_load_include('inc', 'islandora_compound_object', 'includes/derivatives')) {
+      return islandora_compound_object_create_thumbnail($object, isset($options['force']) ? $options['force'] : FALSE);
+    }
+  }
+}
