@@ -38,12 +38,16 @@ The columns must have the following values:
 1. An identifier of an Islandora object. This can also be an (unique) identifier within the metadata datastream of an object.
 2. This value can be one of these:
    * a valid datastream id, such as MODS, TN, JPG.
+   * HDL if you want to (re)generate the handle.
+   * DIMENSIONS if you want to (re)generate the image dimensions of a book or newspaper page (inside the RELS-INT).
    * a property of the object: property:label, property:owner, property:state.
    * a property of a datastream of the object: property:DSID:label, property:DSID:state
    * 'add_to_collection' (for adding the object to a collection)
    * 'remove_from_collection' (for removing the object from a collection)
 3. This value can be:
    * empty. This can only be used with a valid datastream id in column 2 which can be generated (so is a derivative).
+   * the value 'generate' is also possible to generate the derivative.
+   * the value 'regenerate' to force regenerate the derivative (will regenerate the derivative even if it existed already).
    * a filename. Use only when there is a valid datastream id in column 2. This file name will be the new datastream for this id:
      * When using the Web interface, this should be a filename that exists within the ZIP file.
      * When using drush this should be an absolute filepath.
