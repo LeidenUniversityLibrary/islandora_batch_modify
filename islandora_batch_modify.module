@@ -99,6 +99,20 @@ function islandora_batch_modify_generate_extra_derivatives($object, $what, $opti
  * Implements hook_generate_extra_derivatives().
  */
 function islandora_batch_modify_islandora_pagecmodel_generate_extra_derivatives($object, $what, $options) {
+  return _islandora_batch_modify_pages_generate_extra_derivatives($object, $what, $options);
+}
+
+/**
+ * Implements hook_generate_extra_derivatives().
+ */
+function islandora_batch_modify_islandora_newspaperpagecmodel_generate_extra_derivatives($object, $what, $options) {
+  return _islandora_batch_modify_pages_generate_extra_derivatives($object, $what, $options);
+}
+
+/**
+ * Helper function to implement extra derivatives for pages.
+ */
+function _islandora_batch_modify_pages_generate_extra_derivatives($object, $what, $options) {
   if ($what === 'DIMENSIONS') {
     if ($object['JP2']) {
       if (module_load_include('inc', 'islandora_paged_content', 'includes/utilities') !== FALSE) {
