@@ -44,6 +44,7 @@ The columns must have the following values:
    * a property of a datastream of the object: property:DSID:label, property:DSID:state
    * 'add_to_collection' (for adding the object to a collection)
    * 'remove_from_collection' (for removing the object from a collection)
+   * 'generate_ocr', 'generate_hocr' or 'generate_all_ocr' (for generating OCR, HOCR or both OCR and HOCR for pages, generate_ocr will aggregate pre-made OCR of pages)
 3. This value can be:
    * empty. This can only be used with a valid datastream id in column 2 which can be generated (so is a derivative).
    * the value 'generate' is also possible to generate the derivative.
@@ -54,6 +55,7 @@ The columns must have the following values:
    * the value for the property of the object. It should not be empty. In case of property:state the valid values are A, I or D  (Active, Inactive or Deleted).
    * the value for the property of a datastream of the object. It should not be empty. In case of property:DSID:state the only valid value is D (Deleted). This will delete the datastream.
    * a collection id when used with 'add_to_collection' or 'remove_from_collection'. This should be the id of an existing collection.
+   * a three-letter language identifier used with 'generate_*ocr'.
 
 
 ## Requirements

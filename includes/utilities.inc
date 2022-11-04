@@ -201,6 +201,107 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
         }
       }
     }
+    elseif ($modifywhat === 'generate_ocr' || $modifywhat === 'generate_hocr' || $modifywhat === 'generate_all_ocr') {
+      $generate_ocr = NULL;
+      $generate_hocr = NULL;
+      $lang = NULL;
+      if ($modifywhat === 'generate_ocr' || $modifywhat === 'generate_all_ocr') {
+        $generate_ocr = ($value !== 'nothing');
+      }
+      if ($modifywhat === 'generate_hocr' || $modifywhat === 'generate_all_ocr') {
+        $generate_hocr = ($value !== 'nothing');
+      }
+      module_load_include('inc', 'islandora_paged_content', 'includes/utilities');
+      $pages = islandora_paged_content_get_pages($object);
+      if (count($pages) > 0) {
+        // This is something with pages, so aggregate only the OCR.
+        if ($generate_hocr) {
+          $logfunction(t('Cannot aggregate HOCR datastreams for @objectid', array('@objectid' => $objectid)), 'error');
+          return;
+        }
+        $aggr_ocr_file = drupal_tempnam('temporary://', 'aggregated.txt');
+        $aggr_fh = fopen($aggr_ocr_file, 'w');
+        if ($aggr_fh === FALSE) {
+          $logfunction(t('Cannot aggregate OCR datastreams for @objectid, because file cannot be opened.', array('@objectid' => $objectid)), 'error');
+          return;
+        }
+        $missing_pages = array();
+        foreach ($pages as $pagepid => $stuff) {
+          $page = islandora_object_load($pagepid);
+          if (isset($page['OCR'])) {
+            $temp_file = drupal_tempnam('temporary://', 'page');
+            $page['OCR']->getContent($temp_file);
+
+            $content = file_get_contents($temp_file);
+            if ($content !== FALSE) {
+              if (fwrite($aggr_fh, $content) === FALSE) {
+                $logfunction(t('Cannot aggregate OCR datastreams for @objectid, because file cannot be written to.', array('@objectid' => $objectid)), 'error');
+                @fclose($aggr_fh);
+                @unlink($aggr_ocr_file);
+                return;
+              }
+            }
+
+            @unlink($temp_file);
+          }
+          else {
+            $missing_pages[$pagepid] = $stuff['page'];
+          }
+        }
+        if (fclose($aggr_fh) === FALSE) {
+          $logfunction(t('Cannot aggregate OCR datastreams for @objectid, because file failed to close.', array('@objectid' => $objectid)), 'error');
+          @unlink($aggr_ocr_file);
+          return;
+        }
+        if (count($missing_pages) > 0) {
+          $logfunction(t('Missing OCR pages for @objectid: @pages', array('@objectid' => $objectid, '@pages' => implode(',', array_keys($missing_pages)))), 'error');
+          return;
+        }
+        $datastream = isset($object['OCR']) ? $object['OCR'] : $object->constructDatastream('OCR');
+        if (!isset($object['OCR'])) {
+          $datastream->label = 'Consolidated OCR';
+          $datastream->mimeType = 'text/plain';
+        }
+        $datastream->setContentFromFile($aggr_ocr_file);
+        if (!isset($object['OCR'])) {
+          $object->ingestDatastream($datastream);
+        }
+        @unlink($aggr_ocr_file);
+        return;
+      }
+      if ($value !== 'nothing' && strlen($value) > 0) {
+        if (strlen($value) != 3) {
+          $logfunction(t('Language code for @what should be a 3 letter language code for object @objectid but is @value', array('@value' => $value, '@what' => $modifywhat, '@objectid' => $objectid)), 'error');
+          return;
+        }
+        $lang = $value;
+      }
+      if (!isset($object['OBJ'])) {
+        $logfunction(t('Failed to generate OCR because object @objectid does not have a OBJ datastream', array('@objectid' => $objectid)), 'error');
+        return;
+      }
+      module_load_include('inc', 'islandora_ocr', 'includes/derivatives');
+      islandora_ocr_remove_generating_rels_ext_statements($object);
+      islandora_ocr_set_generating_rels_ext_statements($object, $generate_ocr, $generate_hocr, $lang);
+
+      if ($generate_ocr || $generate_hocr) {
+        $options = array('language' => $lang);
+        $what = ($generate_ocr ? ($generate_hocr ? 'OCR/HOCR' : 'OCR') : ($generate_hocr ? 'HOCR' : 'nothing'));
+        if ($loglevel === 'notice') {
+          $logfunction(t('Generating @what for object @objectid', array('@what' => $what, '@objectid' => $objectid)), 'notice');
+        }
+        $return = islandora_paged_content_page_derive_ocr_datastreams($object, $options);
+        if (!$return) {
+          $logfunction(t('Failed to generate @what for object @objectid', array('@what' => $what, '@objectid' => $objectid)), 'error');
+        }
+      }
+      else {
+        if ($loglevel === 'notice') {
+          $what = (!$generate_ocr ? (!$generate_hocr ? 'OCR/HOCR' : 'OCR') : (!$generate_hocr ? 'HOCR' : 'nothing'));
+          $logfunction(t('Removed @what relations for object @objectid', array('@what' => $what, '@objectid' => $objectid)), 'notice');
+        }
+      }
+    }
     elseif (substr($modifywhat, 0, strlen('property')) === 'property') {
       $isgoodproperty = FALSE;
       $parts = explode(':', $modifywhat);
