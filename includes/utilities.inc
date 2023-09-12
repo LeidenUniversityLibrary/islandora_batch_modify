@@ -302,6 +302,26 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
         }
       }
     }
+    elseif ($modifywhat === 'basic2large') {
+      if (module_load_include('inc', 'islandora_basic_to_large_image', 'includes/utilities')) {
+        if (empty($value)) {
+          $logfunction(t('No path to large image found for object @objectid', array('@what' => $what, '@objectid' => $objectid)), 'error');
+          return;
+        }
+        if (!is_file($value)) {
+          $logfunction(t('Cannot read file at @path of large image for object @objectid', array('@path' => $value, '@objectid' => $objectid)), 'error');
+          return;
+        }
+        $result = islandora_basic_to_large_image_process_object($object, $value);
+        if (!$result) {
+          $logfunction(t('Failed to make large image of object @objectid, because it already is a large image or some datastreams could not be removed.', array('@path' => $value, '@objectid' => $objectid)), 'error');
+          return;
+        }
+      }
+      else {
+        $logfunction(t('Missing module islandora_basic_to_large_image, cannot do basic to large for object @objectid', array('@what' => $what, '@objectid' => $objectid)), 'error');
+      }
+    }
     elseif (substr($modifywhat, 0, strlen('property')) === 'property') {
       $isgoodproperty = FALSE;
       $parts = explode(':', $modifywhat);

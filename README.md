@@ -45,6 +45,7 @@ The columns must have the following values:
    * 'add_to_collection' (for adding the object to a collection)
    * 'remove_from_collection' (for removing the object from a collection)
    * 'generate_ocr', 'generate_hocr' or 'generate_all_ocr' (for generating OCR, HOCR or both OCR and HOCR for pages, generate_ocr will aggregate pre-made OCR of pages)
+   * 'basic2large' (for changing a basic image to a large image)
 3. This value can be:
    * empty. This can only be used with a valid datastream id in column 2 which can be generated (so is a derivative).
    * the value 'generate' is also possible to generate the derivative.
@@ -56,6 +57,7 @@ The columns must have the following values:
    * the value for the property of a datastream of the object. It should not be empty. In case of property:DSID:state the only valid value is D (Deleted). This will delete the datastream.
    * a collection id when used with 'add_to_collection' or 'remove_from_collection'. This should be the id of an existing collection.
    * a three-letter language identifier used with 'generate_*ocr'.
+   * an absolute filepath to an image file suitable for large images (only with basic2large in column 2).
 
 
 ## Requirements
