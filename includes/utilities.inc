@@ -411,11 +411,15 @@ function islandora_batch_modify_do_work_for_one($object, $modifywhat, $modifyinf
               // Can only delete a datastream  for now...
               try {
                 $isgoodproperty = TRUE;
-                islandora_delete_datastream($object[$dsid]);
+                if (!islandora_delete_datastream($object[$dsid])) {
+                  if ($loglevel === 'notice' || $loglevel === 'error') {
+                    $logfunction(t('Could not delete datastream of object @objectid', array('@objectid' => $objectid)), 'error');
+                  }
+                }
               }
               catch (Exception $e) {
                 if ($loglevel === 'notice' || $loglevel === 'error') {
-                  $logfunction(t('Error updating label of datastream of object @objectid: @s', array('@s' => $e->getMessage(), '@objectid' => $objectid)), 'error');
+                  $logfunction(t('Error deleting datastream of object @objectid: @s', array('@s' => $e->getMessage(), '@objectid' => $objectid)), 'error');
                 }
               }
             }
